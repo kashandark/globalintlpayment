@@ -25,6 +25,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'GBP': '£',
   'AED': 'د.إ',
   'PKR': '₨',
+  'CHF': 'Fr.',
 };
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt }) => {
@@ -85,7 +86,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
   ].filter(Boolean).length;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full max-h-[700px]">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col max-h-[700px]">
       {/* Header */}
       <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white z-10">
         <div className="flex items-center gap-2">
@@ -214,7 +215,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
             placeholder="Search by recipient, status, or reference ID..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-[#002366] outline-none transition-all shadow-sm"
+            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-xs font-medium text-black focus:ring-2 focus:ring-blue-500/20 focus:border-[#002366] outline-none transition-all shadow-sm"
           />
         </div>
       </div>

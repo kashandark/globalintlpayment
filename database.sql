@@ -33,4 +33,4 @@ CREATE TABLE transactions (
 -- Insert a mock administrator user
 -- Password for demo purposes: admin123 (In production, use bcrypt/argon2)
 INSERT INTO users (username, password_hash, full_name, account_number, balance)
-VALUES ('asdi_global', 'admin123', 'Global International Liquidity', 'DE64300308806131122888', 100000000000.00);
+VALUES ('asdi_global', 'admin123', 'SJ LLC', 'DE07300308805230314596', 1000000000.00);

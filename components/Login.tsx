@@ -21,7 +21,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setTimeout(() => {
       if (username === 'asdi_global' && password === 'admin123') {
         const userData = {
-          name: 'Global International Liquidity',
+          name: 'SJ LLC',
           balance: 1000000000.00
         };
         // Persist session in localStorage

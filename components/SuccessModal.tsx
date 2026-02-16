@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, CheckCircle2, Printer, Layers } from 'lucide-react';
+import { X, CheckCircle2, Printer, Layers, Clock, ShieldCheck } from 'lucide-react';
 import { Transaction } from '../App';
 
 interface SuccessModalProps {
@@ -15,10 +15,12 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'GBP': '£',
   'AED': 'د.إ',
   'PKR': '₨',
+  'CHF': 'Fr.',
 };
 
 const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onViewReceipt }) => {
-  const { amount, name: bank, currency, referenceId } = transaction;
+  const { amount, currency, referenceId, timeframe, fee, totalSettlement, paymentReason } = transaction;
+  const symbol = CURRENCY_SYMBOLS[currency] || '$';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
@@ -29,27 +31,44 @@ const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onVie
         
         <div className="p-10">
           <div className="flex justify-center mb-8">
-            <div className="w-28 h-28 bg-green-50 rounded-full flex items-center justify-center text-green-500 border-2 border-green-100 shadow-inner relative">
+            <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center text-green-500 border-2 border-green-100 shadow-inner relative">
               <div className="absolute inset-0 bg-green-400/10 rounded-full animate-ping"></div>
-              <CheckCircle2 className="w-14 h-14 relative z-10" />
+              <CheckCircle2 className="w-12 h-12 relative z-10" />
             </div>
           </div>
           
           <h2 className="text-2xl font-black text-center text-[#002366] mb-1 tracking-tight uppercase">Transfer Authorized</h2>
-          <p className="text-center text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mb-10">Institutional Funds Dispatched</p>
+          <p className="text-center text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Institutional Funds Dispatched</p>
           
-          <div className="bg-[#f8fafc] rounded-[2rem] p-8 mb-10 border border-gray-100 space-y-5 shadow-inner">
-            <div className="flex justify-between items-center border-b border-gray-200/60 pb-4">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</span>
-              <span className="text-2xl font-black text-[#002366]">{CURRENCY_SYMBOLS[currency] || '$'}{parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2})} {currency}</span>
+          <div className="bg-[#f8fafc] rounded-[2rem] p-8 mb-8 border border-gray-100 space-y-4 shadow-inner">
+            <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Net Principal</span>
+              <span className="text-lg font-black text-gray-700">{symbol}{parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
             </div>
-            <div className="flex justify-between items-center border-b border-gray-200/60 pb-4">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Target Node</span>
-              <span className="text-xs font-black text-gray-700 uppercase tracking-tight">{bank}</span>
+            <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Settlement Fee</span>
+              <span className="text-sm font-black text-red-600">+{symbol}{fee}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ref ID</span>
-              <span className="text-[10px] font-mono font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-tighter">{referenceId}</span>
+            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-4 pt-2">
+              <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Total Asset Cost</span>
+              <span className="text-2xl font-black text-[#002366]">{symbol}{totalSettlement}</span>
+            </div>
+            
+            <div className="pt-2 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Payment Purpose</span>
+                <span className="text-[10px] font-black text-gray-700 uppercase truncate max-w-[150px]">{paymentReason || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Est. Timeframe</span>
+                <span className="text-[10px] font-black text-blue-700 uppercase flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" /> {timeframe || 'Processing'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ref ID</span>
+                <span className="text-[9px] font-mono font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-tighter">{referenceId}</span>
+              </div>
             </div>
           </div>
 
@@ -59,21 +78,15 @@ const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onVie
               className="flex items-center justify-center gap-3 py-5 bg-[#002366] text-white rounded-2xl hover:bg-blue-900 transition-all shadow-xl shadow-blue-900/20 group active:scale-95"
             >
               <Layers className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
-              <span className="text-[12px] font-black tracking-widest uppercase">View/Print Full Bundle</span>
-            </button>
-            <button 
-              onClick={() => window.print()}
-              className="flex items-center justify-center gap-3 py-4 bg-gray-50 text-gray-600 rounded-2xl hover:bg-gray-100 transition-colors border-2 border-gray-100 active:scale-95"
-            >
-              <Printer className="w-4 h-4" /> <span className="text-[11px] font-black tracking-widest uppercase">Quick Print</span>
+              <span className="text-[11px] font-black tracking-widest uppercase">Institutional Document Bundle</span>
             </button>
           </div>
           
           <button
             onClick={onClose}
-            className="w-full py-5 bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-all shadow-xl active:scale-[0.98] tracking-[0.3em] text-xs"
+            className="w-full py-5 bg-gray-100 text-gray-500 font-black rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98] tracking-[0.3em] text-[10px]"
           >
-            DISMISS PORTAL
+            DISMISS NOTIFICATION
           </button>
         </div>
 
