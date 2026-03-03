@@ -4,14 +4,20 @@ import { Eye, EyeOff, TrendingUp, Wallet, ShieldCheck, Landmark, Hash, Globe } f
 
 interface BalanceCardProps {
   balance: string;
-  userName: string;
+  user: { 
+    name: string; 
+    bankEntity?: string;
+    swiftCode?: string;
+    iban?: string;
+    accountNumber?: string;
+  } | null;
 }
 
-const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
+const BalanceCard: React.FC<BalanceCardProps> = ({ balance, user }) => {
   const [isVisible, setIsVisible] = React.useState(true);
 
   return (
-    <div className="relative overflow-hidden bg-[#002366] rounded-3xl p-8 text-white shadow-[0_20px_50px_-12px_rgba(0,35,102,0.4)]">
+    <div className="relative overflow-hidden bg-[#002366] dark:bg-[#001a4d] rounded-3xl p-8 text-white shadow-[0_20px_50px_-12px_rgba(0,35,102,0.4)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.6)] transition-colors duration-300">
       {/* High-tech grid overlay */}
       <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '24px 24px'}}></div>
       
@@ -25,7 +31,7 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
             <div>
               <p className="text-blue-200 text-xs font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Authenticated Session: {userName}
+                Authenticated Session: {user?.name || 'Member'}
               </p>
               <h2 className="text-2xl font-black tracking-tight">Standard Institutional Account</h2>
             </div>
@@ -71,7 +77,7 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
                 <div className="p-2 bg-blue-500/20 rounded-lg"><Landmark className="w-4 h-4 text-blue-300" /></div>
                 <div>
                   <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Bank Entity</p>
-                  <p className="text-sm font-bold text-white leading-tight">HSBC TRINKAUS & BURKHARDT</p>
+                  <p className="text-sm font-bold text-white leading-tight">{user?.bankEntity || 'GIBK CENTRAL NODE'}</p>
                 </div>
               </div>
 
@@ -79,8 +85,10 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
                 <div className="p-2 bg-blue-500/20 rounded-lg"><Hash className="w-4 h-4 text-blue-300" /></div>
                 <div>
                   <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Account & SWIFT</p>
-                  <p className="text-xs font-mono font-bold text-blue-100">ACC: 5230314596</p>
-                  <p className="text-xs font-mono font-bold text-blue-100">BIC: TUBDDEDDXXX</p>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-mono font-bold text-blue-100">ACC: {user?.accountNumber || 'PENDING'}</span>
+                    <span className="text-xs font-mono font-bold text-blue-100">BIC: {user?.swiftCode || 'PENDING'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -88,7 +96,7 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
                 <div className="p-2 bg-blue-500/20 rounded-lg"><Globe className="w-4 h-4 text-blue-300" /></div>
                 <div>
                   <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">IBAN Identification</p>
-                  <p className="text-xs font-mono font-bold text-green-300 tracking-wider">DE07 3003 0880 5230 3145 96</p>
+                  <p className="text-xs font-mono font-bold text-green-300 tracking-wider">{user?.iban || 'PENDING PROVISIONING'}</p>
                 </div>
               </div>
             </div>

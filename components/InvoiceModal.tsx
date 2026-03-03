@@ -48,11 +48,17 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
     element.classList.remove('invoice-preview-mode');
     const opt = {
       margin: 0,
-      filename: `Institutional_Bundle_${transaction.referenceId || transaction.id}.pdf`,
+      filename: `Institutional_Bundle_${transaction.recipient?.replace(/\s/g, '') || transaction.referenceId || transaction.id}.pdf`,
       image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        letterRendering: true, 
+        backgroundColor: '#ffffff',
+        scrollY: 0
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], before: '.printable-page' }
+      pagebreak: { mode: ['css', 'legacy'] }
     };
     const html2pdf = (window as any).html2pdf;
     if (html2pdf) {
@@ -85,7 +91,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
   const totalSettlementVal = transaction.totalSettlement || formattedAmount;
 
   const PageWrapper = ({ children }: { children?: React.ReactNode }) => (
-    <div className="bg-white relative flex flex-col p-0 overflow-hidden printable-page" style={{ width: '210mm', height: '297mm', pageBreakAfter: 'always' }}>
+    <div className="bg-white relative block p-0 overflow-hidden printable-page" style={{ width: '210mm', height: '297mm', pageBreakAfter: 'always', pageBreakInside: 'avoid' }}>
       {children}
     </div>
   );
@@ -93,28 +99,28 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 md:p-4 overflow-hidden">
       <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-md no-print" onClick={onClose}></div>
-      <div className="relative bg-[#f1f5f9] w-full max-w-[98vw] lg:max-w-7xl h-full md:h-[95vh] overflow-hidden md:rounded-[2.5rem] flex flex-col shadow-2xl">
+      <div className="relative bg-[#f1f5f9] dark:bg-[#0a0a0a] w-full max-w-[98vw] lg:max-w-7xl h-full md:h-[95vh] overflow-hidden md:rounded-[2.5rem] flex flex-col shadow-2xl">
         
-        <div className="bg-white border-b px-8 py-4 flex items-center justify-between no-print z-50">
+        <div className="bg-white dark:bg-[#111] border-b dark:border-gray-800 px-8 py-4 flex items-center justify-between no-print z-50">
           <div className="flex items-center gap-4">
-             <button onClick={() => setZoom(z => Math.max(0.3, z-0.1))} className="p-2 hover:bg-gray-100 rounded-xl"><ZoomOut className="w-5 h-5 text-gray-500" /></button>
-             <span className="text-[10px] font-black text-gray-400">{Math.round(zoom * 100)}%</span>
-             <button onClick={() => setZoom(z => Math.min(2.0, z+0.1))} className="p-2 hover:bg-gray-100 rounded-xl"><ZoomIn className="w-5 h-5 text-gray-500" /></button>
+             <button onClick={() => setZoom(z => Math.max(0.3, z-0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"><ZoomOut className="w-5 h-5 text-gray-500 dark:text-gray-400" /></button>
+             <span className="text-[10px] font-black text-gray-400 dark:text-gray-500">{Math.round(zoom * 100)}%</span>
+             <button onClick={() => setZoom(z => Math.min(2.0, z+0.1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"><ZoomIn className="w-5 h-5 text-gray-500 dark:text-gray-400" /></button>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={handleDownloadPDF} className="flex items-center gap-3 px-8 py-3 bg-[#002366] text-white text-[11px] font-black rounded-2xl hover:bg-blue-900 shadow-xl uppercase tracking-widest transition-all">
+            <button onClick={handleDownloadPDF} className="flex items-center gap-3 px-8 py-3 bg-[#002366] dark:bg-blue-700 text-white text-[11px] font-black rounded-2xl hover:bg-blue-900 dark:hover:bg-blue-600 shadow-xl uppercase tracking-widest transition-all">
               <FileDown className="w-4 h-4" /> GENERATE PDF BUNDLE
             </button>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 rounded-xl transition-all"><X className="w-6 h-6" /></button>
+            <button onClick={onClose} className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 bg-gray-50 dark:bg-gray-800 rounded-xl transition-all"><X className="w-6 h-6" /></button>
           </div>
         </div>
 
-        <div ref={containerRef} className="flex-1 overflow-auto bg-gray-400/30 flex flex-col items-center py-20 px-4 custom-scrollbar no-print">
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }} className="flex flex-col gap-0 invoice-printable-target invoice-preview-mode" ref={printableRef}>
+        <div ref={containerRef} className="flex-1 overflow-auto bg-gray-400/30 dark:bg-black/40 flex flex-col items-center py-20 px-4 custom-scrollbar no-print">
+          <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }} className="flex flex-col gap-0 invoice-printable-target invoice-preview-mode shadow-2xl" ref={printableRef}>
             
             {/* Page 1: Official Payment Voucher */}
             <PageWrapper>
-              <div className="pt-16 px-16 flex justify-between items-start border-b-8 border-[#002366] pb-8">
+              <div className="pt-10 px-12 flex justify-between items-start border-b-8 border-[#002366] pb-6">
                 <div className="flex flex-col">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 bg-[#002366] flex items-center justify-center font-bold text-white rounded-lg text-xl">G</div>
@@ -130,11 +136,11 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                 </div>
               </div>
 
-              <div className="px-16 pt-16 flex-1">
-                <h1 className="text-center text-2xl font-black mb-12 uppercase tracking-[0.4em] text-gray-900 border-b-2 border-gray-100 pb-4">Payment Voucher</h1>
+              <div className="px-12 pt-10">
+                <h1 className="text-center text-2xl font-black mb-8 uppercase tracking-[0.4em] text-gray-900 border-b-2 border-gray-100 pb-4">Payment Voucher</h1>
                 
-                <div className="grid grid-cols-2 gap-x-12 gap-y-10">
-                  <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-x-12 gap-y-8">
+                  <div className="space-y-4">
                     <div>
                       <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Ordering Customer</h4>
                       <p className="text-sm font-black text-gray-900">{senderName}</p>
@@ -147,11 +153,14 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <div>
                       <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Beneficiary Identity</h4>
                       <p className="text-sm font-black text-gray-900">{beneficiaryName}</p>
                       <p className="text-[10px] font-mono text-gray-500">{beneficiaryIban}</p>
+                      {transaction.recipientAccountNumber && (
+                        <p className="text-[10px] font-mono text-gray-400">ACC: {transaction.recipientAccountNumber}</p>
+                      )}
                     </div>
                     <div>
                       <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Destination Node</h4>
@@ -161,8 +170,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                   </div>
                 </div>
 
-                <div className="mt-16 bg-[#f8fafc] p-10 rounded-3xl border border-gray-100">
-                  <div className="flex justify-between items-center mb-8">
+                <div className="mt-8 bg-[#f8fafc] p-8 rounded-3xl border border-gray-100">
+                  <div className="flex justify-between items-center mb-6">
                     <div>
                       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Purpose of Remittance</h4>
                       <p className="text-sm font-black text-[#002366]">{transaction.paymentReason || 'Institutional Settlement'}</p>
@@ -173,7 +182,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     </div>
                   </div>
 
-                  <div className="space-y-4 pt-6 border-t border-gray-200">
+                  <div className="space-y-3 pt-4 border-t border-gray-200">
                     <div className="flex justify-between items-center text-gray-500">
                       <span className="text-[11px] font-black uppercase tracking-widest">Net Principal Value</span>
                       <span className="text-lg font-black">{symbol}{formattedAmount}</span>
@@ -182,15 +191,15 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                       <span className="text-[11px] font-black uppercase tracking-widest">Clearing & Settlement Fees</span>
                       <span className="text-sm font-black">+{symbol}{transaction.fee}</span>
                     </div>
-                    <div className="flex justify-between items-center pt-6 mt-4 border-t-2 border-black">
+                    <div className="flex justify-between items-center pt-4 mt-2 border-t-2 border-black">
                       <span className="text-xs font-black uppercase tracking-[0.3em] text-[#002366]">Total Settlement Value</span>
-                      <span className="text-4xl font-black text-[#002366]">{symbol}{totalSettlementVal}</span>
+                      <span className="text-3xl font-black text-[#002366]">{symbol}{totalSettlementVal}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-16 mt-auto flex justify-between items-end bg-gray-50 border-t border-gray-100">
+              <div className="p-10 absolute bottom-0 left-0 right-0 flex justify-between items-end bg-gray-50 border-t border-gray-100">
                  <div className="text-[9px] font-bold text-gray-400 uppercase leading-relaxed max-w-md">
                    This document serves as formal confirmation of funds dispatch. Authenticated via the Global Int clearing protocol. Subject to correspondent bank credit cycles. ISO-20022 Compliant.
                  </div>
@@ -206,8 +215,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
 
             {/* Page 2: High-Fidelity Advice (SWIFT MT103 / SEPA SCT) */}
             <PageWrapper>
-              <div className="p-16 font-mono text-[11px] h-full flex flex-col bg-white">
-                 <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-10">
+              <div className="p-12 font-mono text-[11px] h-full flex flex-col bg-white">
+                 <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
                     <div className="flex items-center gap-2">
                        <Shield className="w-5 h-5 text-[#002366]" />
                        <span className="font-black text-lg uppercase tracking-tight">
@@ -217,19 +226,19 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     <span className="font-black text-gray-400">PAGE 02 OF 03</span>
                  </div>
 
-                 <div className="flex-1 space-y-8">
+                 <div className="space-y-4">
                     <div className="bg-gray-100 p-4 border border-gray-200">
                        <p className="font-black mb-2 flex justify-between">
                          <span>APPLICATION ID: {transaction.isSepa ? 'SCT_INST' : 'SWIFT_FIN'}</span>
-                         <span>NODE: {isOut ? 'HSBC-TR-GER' : 'GIBK-LN-09'}</span>
+                         <span>NODE: {isOut ? (transaction.isSepa ? 'EBA-CLEAR-EU' : 'HSBC-TR-GER') : (['GIBK-LN-09', 'GIBK-DX-05', 'GIBK-SH-10', 'GIBK-RY-15', 'GIBK-KA-16', 'GIBK-DB-14'][Math.floor(Math.random() * 6)])}</span>
                        </p>
                        <p className="text-[10px] text-gray-500">SESSION: {Math.random().toString().slice(2, 10)} | AUTH_LVL: INSTITUTIONAL_TIER_1</p>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                        <div className="bg-black text-white p-2 font-black text-[10px] uppercase tracking-widest">-- Message Text Block 4 --</div>
                        
-                       <div className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-3 px-2">
+                       <div className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-2 px-2">
                           <div className="font-bold text-gray-400">:20: SENDER REFERENCE</div>
                           <div className="font-black">{transaction.referenceId}</div>
 
@@ -247,6 +256,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                           <div className="font-black leading-relaxed">
                              {beneficiaryName}<br/>
                              IBAN: {beneficiaryIban}<br/>
+                             ACC: {transaction.recipientAccountNumber || 'N/A'}<br/>
                              BIC: {beneficiaryBic}
                           </div>
 
@@ -267,7 +277,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                        </div>
                     </div>
 
-                    <div className="pt-10 space-y-4">
+                    <div className="pt-6 space-y-3">
                        <div className="bg-gray-50 border border-gray-200 p-6 rounded-xl flex items-center justify-between">
                           <div className="flex items-center gap-4">
                              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white">
@@ -298,10 +308,10 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
 
             {/* Page 3: Structured Debit Note */}
             <PageWrapper>
-              <div className="p-16 flex flex-col h-full bg-[#fcfcfc]">
-                 <div className="h-4 bg-[#002366] w-full mb-12"></div>
+              <div className="p-12 flex flex-col h-full bg-[#fcfcfc]">
+                 <div className="h-4 bg-[#002366] w-full mb-8"></div>
                  
-                 <div className="flex justify-between items-start mb-16">
+                 <div className="flex justify-between items-start mb-10">
                     <div className="space-y-2">
                        <h1 className="text-5xl font-black text-[#002366] uppercase tracking-tighter">Debit Note</h1>
                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] ml-1">Asset Clearance Advice</p>
@@ -314,7 +324,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     </div>
                  </div>
 
-                 <div className="flex-1 space-y-12 px-2">
+                 <div className="space-y-8 px-2">
                     <div className="grid grid-cols-2 gap-12">
                        <div className="space-y-4">
                           <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Debited Account</h4>
@@ -328,14 +338,16 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                           <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Payment Details</h4>
                           <div className="space-y-1">
                              <p className="text-sm font-black text-gray-900">{isOut ? beneficiaryName : USER_ACCOUNT_NAME}</p>
-                             <p className="text-[11px] font-black text-[#002366]">{transaction.paymentReason}</p>
+                             <p className="text-[11px] font-mono text-gray-500">{isOut ? beneficiaryIban : USER_ACCOUNT_IBAN}</p>
+                             <p className="text-[10px] font-mono text-gray-400">ACC: {isOut ? (transaction.recipientAccountNumber || 'N/A') : USER_ACCOUNT_NO}</p>
+                             <p className="text-[11px] font-black text-[#002366] mt-1">{transaction.paymentReason}</p>
                           </div>
                        </div>
                     </div>
 
-                    <div className="bg-white border-2 border-[#002366] rounded-[2rem] p-10 shadow-2xl shadow-[#002366]/5">
-                       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8 text-center">Final Settlement Breakdown</h4>
-                       <div className="space-y-6 font-mono">
+                    <div className="bg-white border-2 border-[#002366] rounded-[2rem] p-8 shadow-2xl shadow-[#002366]/5">
+                       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6 text-center">Final Settlement Breakdown</h4>
+                       <div className="space-y-4 font-mono">
                           <div className="flex justify-between items-center text-gray-500">
                              <span className="text-xs uppercase font-bold">Base Principal</span>
                              <span className="text-lg font-black">{symbol}{formattedAmount}</span>
@@ -344,10 +356,10 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                              <span className="text-xs uppercase font-bold">Settlement Fee (Instruction: {transaction.feeInstruction || 'OUR'})</span>
                              <span className="text-lg font-black">+{symbol}{transaction.fee}</span>
                           </div>
-                          <div className="pt-8 border-t-2 border-dashed border-gray-200 flex justify-between items-center">
+                          <div className="pt-6 border-t-2 border-dashed border-gray-200 flex justify-between items-center">
                              <span className="text-lg font-black text-[#002366] uppercase">Total Asset Deduction</span>
                              <div className="text-right">
-                                <span className="text-5xl font-black text-[#002366] tracking-tighter">{symbol}{totalSettlementVal}</span>
+                                <span className="text-4xl font-black text-[#002366] tracking-tighter">{symbol}{totalSettlementVal}</span>
                                 <p className="text-[10px] font-black text-gray-400 uppercase mt-2">Deducted from Tier-1 Liquidity Pool</p>
                              </div>
                           </div>
@@ -361,8 +373,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     </div>
                  </div>
 
-                 <div className="mt-auto flex justify-center pt-10">
-                    <div className="border-8 border-[#002366] p-8 bg-white shadow-2xl rotate-[-2deg] transition-transform hover:rotate-0 cursor-default">
+                 <div className="mt-auto flex justify-center pt-6">
+                    <div className="border-8 border-[#002366] p-6 bg-white shadow-2xl rotate-[-2deg] transition-transform hover:rotate-0 cursor-default">
                        <span className="text-5xl font-black text-[#002366] italic uppercase tracking-tighter">AUTHENTICATED</span>
                     </div>
                  </div>
