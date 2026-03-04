@@ -43,8 +43,8 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
     return transactions.filter(tx => {
       // 1. Search Query (Name, Status, RefID)
       const matchesSearch = 
-        tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (tx.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (tx.status || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (tx.referenceId && tx.referenceId.toLowerCase().includes(searchQuery.toLowerCase()));
 
       if (!matchesSearch) return false;

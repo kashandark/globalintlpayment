@@ -109,7 +109,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const filteredProfiles = profiles.filter(p => 
-    p.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.id.includes(searchQuery)
   );
 

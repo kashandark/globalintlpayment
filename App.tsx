@@ -123,25 +123,26 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await api.getSession();
-      if (session) {
-        const localSession = localStorage.getItem('asdipro_session');
-        if (localSession) {
-          const parsed = JSON.parse(localSession);
-          setIsLoggedIn(true);
-          setUser(parsed.user);
-          setSessionStartTime(parsed.loginTime || Date.now());
-          if (parsed.nodes) {
-            setAuthNodes(parsed.nodes);
+      try {
+        const { data: { session }, error } = await api.getSession();
+        if (error) throw error;
+        
+        if (session) {
+          const localSession = localStorage.getItem('asdipro_session');
+          if (localSession) {
+            const parsed = JSON.parse(localSession);
+            setIsLoggedIn(true);
+            setUser(parsed.user);
+            setSessionStartTime(parsed.loginTime || Date.now());
+            if (parsed.nodes) {
+              setAuthNodes(parsed.nodes);
+            } else {
+              generateRandomNodes();
+            }
           } else {
-            generateRandomNodes();
-          }
-        } else {
-          // If we have a supabase session but no local session info (e.g. refresh)
-          // we should probably fetch the profile
-          try {
-            const { data: { session } } = await api.getSession();
-            if (session) {
+            // If we have a supabase session but no local session info (e.g. refresh)
+            // we should probably fetch the profile
+            try {
               const profile = await api.getProfile(session.user.id);
               const userData = { 
                 name: profile.full_name, 
@@ -155,12 +156,16 @@ const App: React.FC = () => {
               setIsLoggedIn(true);
               setUser(userData);
               generateRandomNodes();
+            } catch (e) {
+              api.logout();
             }
-          } catch (e) {
-            api.logout();
           }
+        } else {
+          setIsLoggedIn(false);
         }
-      } else {
+      } catch (e) {
+        console.warn('Session invalid or refresh token missing, logging out');
+        api.logout();
         setIsLoggedIn(false);
       }
     };

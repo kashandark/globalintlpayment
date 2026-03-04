@@ -380,9 +380,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
                     </div>
                   </div>
                   <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                    {savedRecipients.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()) || r.iban.includes(searchQuery.toUpperCase())).length > 0 ? (
+                    {savedRecipients.filter(r => (r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (r.iban || '').includes(searchQuery.toUpperCase())).length > 0 ? (
                       savedRecipients
-                        .filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()) || r.iban.includes(searchQuery.toUpperCase()))
+                        .filter(r => (r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (r.iban || '').includes(searchQuery.toUpperCase()))
                         .map(r => (
                           <button
                             key={r.id}
