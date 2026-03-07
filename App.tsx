@@ -48,6 +48,7 @@ export interface Transaction {
   exchangeRate?: number;
   eurAmount?: number; 
   isSepa?: boolean;
+  isHsbcGlobal?: boolean;
   timeframe?: string;
   fee?: string;
   totalSettlement?: string;
@@ -151,7 +152,8 @@ const App: React.FC = () => {
                 bankEntity: profile.bank_entity,
                 swiftCode: profile.swift_code,
                 iban: profile.iban,
-                accountNumber: profile.account_number
+                accountNumber: profile.account_number,
+                currency: profile.currency
               }; 
               setIsLoggedIn(true);
               setUser(userData);
@@ -272,6 +274,7 @@ const App: React.FC = () => {
         exchangeRate: details.rate,
         eurAmount: eurValue,
         isSepa: details.isSepa,
+        isHsbcGlobal: details.isHsbcGlobal,
         timeframe: details.timeframe,
         fee: details.fee,
         totalSettlement: totalInSelectedCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),

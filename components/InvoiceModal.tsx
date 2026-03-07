@@ -19,6 +19,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'AED': 'د.إ',
   'PKR': '₨',
   'CHF': 'Fr.',
+  'HKD': 'HK$',
 };
 
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => {
@@ -157,9 +158,9 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     <div>
                       <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Beneficiary Identity</h4>
                       <p className="text-sm font-black text-gray-900">{beneficiaryName}</p>
-                      <p className="text-[10px] font-mono text-gray-500">{beneficiaryIban}</p>
-                      {transaction.recipientAccountNumber && (
-                        <p className="text-[10px] font-mono text-gray-400">ACC: {transaction.recipientAccountNumber}</p>
+                      <p className="text-[10px] font-mono text-gray-500">{transaction.isHsbcGlobal ? 'HSBC INTERNAL' : beneficiaryIban}</p>
+                      {(transaction.recipientAccountNumber || transaction.isHsbcGlobal) && (
+                        <p className="text-[10px] font-mono text-gray-400">ACC: {transaction.recipientAccountNumber || 'N/A'}</p>
                       )}
                     </div>
                     <div>
@@ -220,7 +221,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     <div className="flex items-center gap-2">
                        <Shield className="w-5 h-5 text-[#002366]" />
                        <span className="font-black text-lg uppercase tracking-tight">
-                         {transaction.isSepa ? 'SEPA Credit Transfer Advice (SCT)' : 'SWIFT MT103 Transmission Advice'}
+                         {transaction.isHsbcGlobal ? 'HSBC Global Transfer Advice' : transaction.isSepa ? 'SEPA Credit Transfer Advice (SCT)' : 'SWIFT MT103 Transmission Advice'}
                        </span>
                     </div>
                     <span className="font-black text-gray-400">PAGE 02 OF 03</span>
@@ -229,8 +230,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                  <div className="space-y-4">
                     <div className="bg-gray-100 p-4 border border-gray-200">
                        <p className="font-black mb-2 flex justify-between">
-                         <span>APPLICATION ID: {transaction.isSepa ? 'SCT_INST' : 'SWIFT_FIN'}</span>
-                         <span>NODE: {isOut ? (transaction.isSepa ? 'EBA-CLEAR-EU' : 'HSBC-TR-GER') : (['GIBK-LN-09', 'GIBK-DX-05', 'GIBK-SH-10', 'GIBK-RY-15', 'GIBK-KA-16', 'GIBK-DB-14'][Math.floor(Math.random() * 6)])}</span>
+                         <span>APPLICATION ID: {transaction.isHsbcGlobal ? 'HSBC_GLOBAL' : transaction.isSepa ? 'SCT_INST' : 'SWIFT_FIN'}</span>
+                         <span>NODE: {isOut ? (transaction.isHsbcGlobal ? 'HSBC-HK-01' : transaction.isSepa ? 'EBA-CLEAR-EU' : 'HSBC-TR-GER') : (['GIBK-LN-09', 'GIBK-DX-05', 'GIBK-SH-10', 'GIBK-RY-15', 'GIBK-KA-16', 'GIBK-DB-14'][Math.floor(Math.random() * 6)])}</span>
                        </p>
                        <p className="text-[10px] text-gray-500">SESSION: {Math.random().toString().slice(2, 10)} | AUTH_LVL: INSTITUTIONAL_TIER_1</p>
                     </div>
@@ -255,7 +256,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                           <div className="font-bold text-gray-400">:59: BENEFICIARY CUSTOMER</div>
                           <div className="font-black leading-relaxed">
                              {beneficiaryName}<br/>
-                             IBAN: {beneficiaryIban}<br/>
+                             {transaction.isHsbcGlobal ? 'HSBC INTERNAL NETWORK' : `IBAN: ${beneficiaryIban}`}<br/>
                              ACC: {transaction.recipientAccountNumber || 'N/A'}<br/>
                              BIC: {beneficiaryBic}
                           </div>
@@ -271,7 +272,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
 
                           <div className="font-bold text-gray-400">:72: SENDER TO RCVR INFO</div>
                           <div className="font-black leading-relaxed text-blue-700">
-                             /IBN/ CLEARED VIA {transaction.isSepa ? 'SEPA INSTANT NODE' : 'GLOBAL SWIFT HUB'}<br/>
+                             /IBN/ CLEARED VIA {transaction.isHsbcGlobal ? 'HSBC GLOBAL INTERNAL NETWORK' : transaction.isSepa ? 'SEPA INSTANT NODE' : 'GLOBAL SWIFT HUB'}<br/>
                              /SET/ TOTAL DEBITED FROM POOL: {symbol}{totalSettlementVal}
                           </div>
                        </div>

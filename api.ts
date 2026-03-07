@@ -28,6 +28,7 @@ export interface UserProfile {
   swift_code?: string;
   iban?: string;
   account_number?: string;
+  currency?: string;
   created_at: string;
 }
 
@@ -57,7 +58,8 @@ class ApiService {
         bankEntity: profile.bank_entity,
         swiftCode: profile.swift_code,
         iban: profile.iban,
-        accountNumber: profile.account_number
+        accountNumber: profile.account_number,
+        currency: profile.currency
       }, 
       session: data.session 
     };
@@ -268,7 +270,8 @@ class ApiService {
         bank_entity: profile.bank_entity,
         swift_code: profile.swift_code,
         iban: profile.iban,
-        account_number: profile.account_number
+        account_number: profile.account_number,
+        currency: profile.currency || 'USD'
       }]);
 
     if (profileError) throw profileError;

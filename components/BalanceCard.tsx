@@ -10,11 +10,22 @@ interface BalanceCardProps {
     swiftCode?: string;
     iban?: string;
     accountNumber?: string;
+    currency?: string;
   } | null;
 }
 
 const BalanceCard: React.FC<BalanceCardProps> = ({ balance, user }) => {
   const [isVisible, setIsVisible] = React.useState(true);
+
+  const getCurrencySymbol = (currency?: string) => {
+    switch (currency) {
+      case 'EUR': return '€';
+      case 'GBP': return '£';
+      case 'JPY':
+      case 'CNY': return '¥';
+      default: return '$';
+    }
+  };
 
   return (
     <div className="relative overflow-hidden bg-[#002366] dark:bg-[#001a4d] rounded-3xl p-8 text-white shadow-[0_20px_50px_-12px_rgba(0,35,102,0.4)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.6)] transition-colors duration-300">
@@ -48,10 +59,13 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, user }) => {
               Available Liquidity
             </p>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-medium text-blue-200">€</span>
+              <span className="text-2xl font-medium text-blue-200">{getCurrencySymbol(user?.currency)}</span>
               <span className="text-4xl md:text-5xl font-black tracking-tighter">
                 {isVisible ? balance : '•••••••••••••••'}
               </span>
+              {user?.currency && (
+                <span className="text-xs font-bold text-blue-300 ml-1 opacity-60">{user.currency}</span>
+              )}
             </div>
           </div>
 

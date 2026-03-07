@@ -30,6 +30,7 @@ const AdminDashboard: React.FC = () => {
     full_name: '',
     balance: '0',
     role: 'user' as 'admin' | 'user',
+    currency: 'USD',
     bank_entity: '',
     swift_code: '',
     iban: '',
@@ -63,7 +64,8 @@ const AdminDashboard: React.FC = () => {
         bank_entity: regForm.bank_entity,
         swift_code: regForm.swift_code,
         iban: regForm.iban,
-        account_number: regForm.account_number
+        account_number: regForm.account_number,
+        currency: regForm.currency
       });
       setMessage({ type: 'success', text: 'New entity provisioned successfully' });
       setShowRegister(false);
@@ -73,6 +75,7 @@ const AdminDashboard: React.FC = () => {
         full_name: '',
         balance: '0',
         role: 'user',
+        currency: 'USD',
         bank_entity: '',
         swift_code: '',
         iban: '',
@@ -209,7 +212,7 @@ const AdminDashboard: React.FC = () => {
                       placeholder="SJ LLC / Global Corp"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Initial Liquidity</label>
                       <input 
@@ -218,6 +221,20 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => setRegForm({...regForm, balance: e.target.value})}
                         className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-black text-blue-600 dark:text-blue-400 outline-none focus:border-blue-600 transition-all"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Currency</label>
+                      <select 
+                        value={regForm.currency}
+                        onChange={(e) => setRegForm({...regForm, currency: e.target.value})}
+                        className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-bold outline-none focus:border-blue-600 dark:text-white transition-all appearance-none"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                        <option value="CNY">CNY</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Access Role</label>
@@ -372,14 +389,31 @@ const AdminDashboard: React.FC = () => {
                     <Activity className="w-3 h-3" /> Available Liquidity
                   </label>
                   {editingId === profile.id ? (
-                    <input 
-                      type="number"
-                      value={editForm.balance}
-                      onChange={(e) => setEditForm({...editForm, balance: parseFloat(e.target.value)})}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black text-blue-600 dark:text-blue-400 outline-none focus:border-blue-600"
-                    />
+                    <div className="flex gap-2">
+                      <input 
+                        type="number"
+                        value={editForm.balance}
+                        onChange={(e) => setEditForm({...editForm, balance: parseFloat(e.target.value)})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black text-blue-600 dark:text-blue-400 outline-none focus:border-blue-600"
+                      />
+                      <select 
+                        value={editForm.currency || 'USD'}
+                        onChange={(e) => setEditForm({...editForm, currency: e.target.value})}
+                        className="px-3 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600 appearance-none"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                        <option value="CNY">CNY</option>
+                      </select>
+                    </div>
                   ) : (
-                    <p className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">€{profile.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
+                      {profile.currency === 'EUR' ? '€' : profile.currency === 'GBP' ? '£' : profile.currency === 'JPY' ? '¥' : profile.currency === 'CNY' ? '¥' : '$'}
+                      {profile.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <span className="text-[10px] ml-1 opacity-60">{profile.currency || 'USD'}</span>
+                    </p>
                   )}
                 </div>
 

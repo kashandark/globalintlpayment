@@ -26,6 +26,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'AED': 'د.إ',
   'PKR': '₨',
   'CHF': 'Fr.',
+  'HKD': 'HK$',
 };
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt }) => {

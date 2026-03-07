@@ -59,7 +59,9 @@ const FINANCIAL_HUB_DB: Record<string, Partial<IBANMetadata>> = {
   'US': { countryName: 'United States', currency: 'USD', ibanLength: 0, centralBankName: 'Federal Reserve', centralBankUrl: 'https://www.federalreserve.gov/', membership: 'oecd_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' },
   'CN': { countryName: 'China', currency: 'CNY', ibanLength: 0, centralBankName: 'People\'s Bank of China', centralBankUrl: 'http://www.pbc.gov.cn/', membership: 'non_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' },
   'IE': { countryName: 'Ireland', currency: 'EUR', ibanLength: 22, centralBankName: 'Central Bank of Ireland', centralBankUrl: 'https://www.centralbank.ie/', membership: 'eu_member', isEuMember: 'Yes', isSepa: 'Yes', isSwift: 'Yes' },
-  'SA': { countryName: 'Saudi Arabia', currency: 'SAR', ibanLength: 24, centralBankName: 'Saudi Central Bank', centralBankUrl: 'https://www.sama.gov.sa/', membership: 'gcc_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' }
+  'LT': { countryName: 'Lithuania', currency: 'EUR', ibanLength: 20, centralBankName: 'Bank of Lithuania', centralBankUrl: 'https://www.lb.lt/', membership: 'eu_member', isEuMember: 'Yes', isSepa: 'Yes', isSwift: 'Yes' },
+  'SA': { countryName: 'Saudi Arabia', currency: 'SAR', ibanLength: 24, centralBankName: 'Saudi Central Bank', centralBankUrl: 'https://www.sama.gov.sa/', membership: 'gcc_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' },
+  'HK': { countryName: 'Hong Kong', currency: 'HKD', ibanLength: 0, centralBankName: 'Hong Kong Monetary Authority', centralBankUrl: 'https://www.hkma.gov.hk/', membership: 'non_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' }
 };
 
 const INITIAL_RATES: Record<string, number> = {
@@ -70,10 +72,11 @@ const INITIAL_RATES: Record<string, number> = {
   'PKR': 278.45,
   'CHF': 0.89,
   'CNY': 7.24,
-  'SAR': 3.75
+  'SAR': 3.75,
+  'HKD': 7.82
 };
 
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'PKR', 'CHF', 'CNY', 'SAR'];
+const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'PKR', 'CHF', 'CNY', 'SAR', 'HKD'];
 
 const PAYMENT_REASONS = [
   'Invoice Settlement',
@@ -96,7 +99,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
   const [currency, setCurrency] = useState('USD');
   const [paymentReason, setPaymentReason] = useState(PAYMENT_REASONS[0]);
   
-  const [selectedMethod, setSelectedMethod] = useState<'SEPA' | 'SWIFT' | null>(null);
+  const [transferType, setTransferType] = useState<'STANDARD' | 'HSBC_GLOBAL'>('STANDARD');
+  const [destinationCountry, setDestinationCountry] = useState('HK');
+  const [selectedMethod, setSelectedMethod] = useState<'SEPA' | 'SWIFT' | 'HSBC_GLOBAL' | null>(null);
   const [sepaSpeed, setSepaSpeed] = useState<'standard' | 'instant'>('standard');
   const [isManual, setIsManual] = useState(false);
 
@@ -111,6 +116,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
   const [showRecipientDropdown, setShowRecipientDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [shouldSaveRecipient, setShouldSaveRecipient] = useState(false);
   const [isSavingRecipient, setIsSavingRecipient] = useState(false);
 
   const validationTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -236,6 +242,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
   }, [recipientIban]);
 
   const getTimeframe = () => {
+    if (selectedMethod === 'HSBC_GLOBAL') {
+      return "Instant (Internal Network)";
+    }
     if (selectedMethod === 'SEPA') {
       return sepaSpeed === 'instant' ? "Under 10 Seconds" : "Max 1 Business Day";
     }
@@ -244,6 +253,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
 
   const getFee = () => {
     const val = parseFloat(amount || '0');
+    if (selectedMethod === 'HSBC_GLOBAL') {
+      return (val * 0.01).toFixed(2);
+    }
     if (selectedMethod === 'SEPA') {
       const rate = sepaSpeed === 'instant' ? 0.03 : 0.005;
       return (val * rate).toFixed(2);
@@ -283,6 +295,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
       currency: currency,
       rate: rates[currency],
       isSepa: selectedMethod === 'SEPA',
+      isHsbcGlobal: selectedMethod === 'HSBC_GLOBAL',
       timeframe: timeframe,
       fee: fee,
       paymentReason: paymentReason,
@@ -290,10 +303,15 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
     });
     setIsProcessing(false);
     
-    // Check if recipient is already saved
-    const isAlreadySaved = savedRecipients.some(r => r.iban.replace(/\s/g, '') === recipientIban.replace(/\s/g, ''));
-    if (!isAlreadySaved) {
-      setShowSavePrompt(true);
+    // Save recipient if requested
+    if (shouldSaveRecipient) {
+      await handleSaveRecipient();
+    } else {
+      // Check if recipient is already saved
+      const isAlreadySaved = savedRecipients.some(r => r.iban.replace(/\s/g, '') === recipientIban.replace(/\s/g, ''));
+      if (!isAlreadySaved) {
+        setShowSavePrompt(true);
+      }
     }
   };
 
@@ -323,6 +341,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
     if (r.account_number) setRecipientAccountNumber(r.account_number);
     setShowRecipientDropdown(false);
     setSearchQuery('');
+    setShouldSaveRecipient(false);
   };
 
   // Convert to EUR base (Assuming rates are USD-based: 1 USD = 0.92 EUR)
@@ -350,17 +369,55 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
       </div>
 
       <form onSubmit={handleTransfer} className="p-8 space-y-8">
-        {/* Step 1: Destination (IBAN) */}
+        {/* Transfer Type Selector */}
+        <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              setTransferType('STANDARD');
+              setSelectedMethod(null);
+              setIbanData(null);
+            }}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${transferType === 'STANDARD' ? 'bg-white dark:bg-[#111] text-[#002366] dark:text-blue-400 shadow-sm' : 'text-gray-400'}`}
+          >
+            Standard (IBAN/SWIFT)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTransferType('HSBC_GLOBAL');
+              setSelectedMethod('HSBC_GLOBAL');
+              setIbanData({
+                isValid: true,
+                countryCode: destinationCountry,
+                countryName: FINANCIAL_HUB_DB[destinationCountry]?.countryName || 'Hong Kong',
+                currency: FINANCIAL_HUB_DB[destinationCountry]?.currency || 'HKD',
+                bankName: 'HSBC Global Network',
+                bic: 'HSBCHKHXXXX'
+              });
+              setCurrency(FINANCIAL_HUB_DB[destinationCountry]?.currency || 'HKD');
+            }}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${transferType === 'HSBC_GLOBAL' ? 'bg-[#002366] dark:bg-blue-700 text-white shadow-sm' : 'text-gray-400'}`}
+          >
+            HSBC Global Transfer
+          </button>
+        </div>
+
+        {/* Step 1: Destination */}
         <div className="space-y-4">
           <div className="flex justify-between items-center px-1">
             <label className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
-              <Building2 className="w-3.5 h-3.5" /> Target Account Identifier (IBAN)
+              <Building2 className="w-3.5 h-3.5" /> {transferType === 'HSBC_GLOBAL' ? 'HSBC Account Number' : 'Target Account Identifier (IBAN)'}
             </label>
             <div className="relative">
               <button 
                 type="button"
                 onClick={() => setShowRecipientDropdown(!showRecipientDropdown)}
-                className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                  showRecipientDropdown 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                    : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                }`}
               >
                 <Search className="w-3 h-3" /> {showRecipientDropdown ? 'Close' : 'Saved Recipients'}
               </button>
@@ -405,17 +462,61 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
             </div>
           </div>
           <div className="relative group">
-            <input 
-              type="text" 
-              value={recipientIban}
-              onChange={(e) => setRecipientIban(e.target.value.toUpperCase())}
-              placeholder="e.g. DE64 3003 ..."
-              className="w-full pl-5 pr-12 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-base font-mono font-bold text-black dark:text-white focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-[#002366] dark:focus:border-blue-600 outline-none transition-all"
-              required
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              {isValidating ? <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" /> : ibanData?.isValid && <CheckCircle2 className="w-6 h-6 text-green-500 dark:text-green-400" />}
-            </div>
+            {transferType === 'HSBC_GLOBAL' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={recipientAccountNumber}
+                    onChange={(e) => setRecipientAccountNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. 123-456789-001"
+                    className="w-full pl-5 pr-12 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-base font-mono font-bold text-black dark:text-white focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-[#002366] dark:focus:border-blue-600 outline-none transition-all"
+                    required
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <CheckCircle2 className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+                  </div>
+                </div>
+                <div className="relative">
+                  <select
+                    value={destinationCountry}
+                    onChange={(e) => {
+                      setDestinationCountry(e.target.value);
+                      const hub = FINANCIAL_HUB_DB[e.target.value];
+                      setIbanData({
+                        isValid: true,
+                        countryCode: e.target.value,
+                        countryName: hub?.countryName || 'Hong Kong',
+                        currency: hub?.currency || 'HKD',
+                        bankName: 'HSBC Global Network',
+                        bic: 'HSBCHKHXXXX'
+                      });
+                      setCurrency(hub?.currency || 'HKD');
+                    }}
+                    className="w-full px-5 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-sm font-bold text-black dark:text-white appearance-none outline-none focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-[#002366] dark:focus:border-blue-600 transition-all"
+                  >
+                    {Object.entries(FINANCIAL_HUB_DB).map(([code, data]) => (
+                      <option key={code} value={code}>{data.countryName}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <input 
+                  type="text" 
+                  value={recipientIban}
+                  onChange={(e) => setRecipientIban(e.target.value.toUpperCase())}
+                  placeholder="e.g. DE64 3003 ..."
+                  className="w-full pl-5 pr-12 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-base font-mono font-bold text-black dark:text-white focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-[#002366] dark:focus:border-blue-600 outline-none transition-all"
+                  required
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {isValidating ? <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" /> : ibanData?.isValid && <CheckCircle2 className="w-6 h-6 text-green-500 dark:text-green-400" />}
+                </div>
+              </>
+            )}
           </div>
 
           {ibanData && (
@@ -448,7 +549,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
         </div>
 
         {/* Protocol Selection */}
-        {ibanData && ibanData.isSepa === 'Yes' && ibanData.isSwift === 'Yes' && (
+        {transferType === 'STANDARD' && ibanData && ibanData.isSepa === 'Yes' && ibanData.isSwift === 'Yes' && (
           <div className="animate-in slide-in-from-top-2 duration-300">
              <div className="bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 rounded-3xl p-6">
                 <p className="text-center text-[10px] font-black text-blue-900 dark:text-blue-300 uppercase tracking-widest mb-4">Dual Network Protocol Detected - Select Path</p>
@@ -472,15 +573,20 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
           </div>
         )}
 
-        {/* Unified Mandatory Information Form (SEPA/SWIFT) */}
+        {/* Unified Mandatory Information Form (SEPA/SWIFT/HSBC) */}
         {selectedMethod && (
           <div className="animate-in zoom-in-95 duration-500 space-y-6">
-             <div className={`border-2 border-dashed rounded-[2rem] p-8 space-y-6 ${selectedMethod === 'SEPA' ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' : 'bg-amber-50/30 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30'}`}>
+             <div className={`border-2 border-dashed rounded-[2rem] p-8 space-y-6 ${selectedMethod === 'HSBC_GLOBAL' ? 'bg-indigo-50/30 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30' : selectedMethod === 'SEPA' ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' : 'bg-amber-50/30 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30'}`}>
                 <div className="flex items-center justify-between mb-2">
                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${selectedMethod === 'SEPA' ? 'bg-blue-600' : 'bg-[#002366] dark:bg-blue-700'}`}><User className="w-4 h-4" /></div>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${selectedMethod === 'HSBC_GLOBAL' ? 'bg-indigo-600' : selectedMethod === 'SEPA' ? 'bg-blue-600' : 'bg-[#002366] dark:bg-blue-700'}`}><User className="w-4 h-4" /></div>
                       <h4 className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-widest">Mandatory Recipient Information</h4>
                    </div>
+                   {selectedMethod === 'HSBC_GLOBAL' && (
+                      <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-lg shadow-indigo-600/20 flex items-center gap-1.5">
+                         <Zap className="w-3 h-3" /> HSBC Global Transfer: Instant
+                      </div>
+                   )}
                    {selectedMethod === 'SWIFT' && (
                       <div className="bg-amber-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-lg shadow-amber-600/20 flex items-center gap-1.5">
                          <ShieldCheck className="w-3 h-3" /> Fee Protocol: OUR (Sender Pays)
@@ -521,6 +627,20 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
                         className="w-full px-4 py-4 bg-white dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-black dark:text-white focus:border-[#002366] dark:focus:border-blue-600 outline-none transition-colors"
                         required
                       />
+                   </div>
+                   <div className="md:col-span-2 flex items-center gap-3 px-1 py-2">
+                      <div className="relative flex items-center">
+                        <input 
+                          type="checkbox" 
+                          id="shouldSaveRecipient"
+                          checked={shouldSaveRecipient}
+                          onChange={(e) => setShouldSaveRecipient(e.target.checked)}
+                          className="w-5 h-5 rounded-lg border-2 border-gray-200 dark:border-gray-700 text-blue-600 focus:ring-blue-500 dark:bg-gray-800 transition-all cursor-pointer"
+                        />
+                      </div>
+                      <label htmlFor="shouldSaveRecipient" className="text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        Save to institutional address book for future clearing
+                      </label>
                    </div>
                    <div className="md:col-span-2 space-y-2">
                       <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">Reason for Payment</label>
@@ -639,9 +759,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
 
         <button 
           type="submit"
-          disabled={!ibanData?.isValid || !selectedMethod || isProcessing || !amount || !recipientName || !bicCode}
+          disabled={!ibanData?.isValid || !selectedMethod || isProcessing || !amount || !recipientName || (selectedMethod !== 'HSBC_GLOBAL' && !bicCode)}
           className={`w-full py-6 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.25em] shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-40 ${
-            selectedMethod === 'SEPA' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#002366] hover:bg-blue-900'
+            selectedMethod === 'HSBC_GLOBAL' ? 'bg-indigo-600 hover:bg-indigo-700' : selectedMethod === 'SEPA' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#002366] hover:bg-blue-900'
           }`}
         >
           {isProcessing ? (
@@ -651,7 +771,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
             </div>
           ) : (
             <span className="flex items-center gap-2">
-              Authorize {selectedMethod} Transmission <ChevronRight className="w-5 h-5" />
+              Authorize {selectedMethod === 'HSBC_GLOBAL' ? 'HSBC Global' : selectedMethod} Transmission <ChevronRight className="w-5 h-5" />
             </span>
           )}
         </button>
