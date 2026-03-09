@@ -21,7 +21,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onViewReceipt }) => {
-  const { amount, currency, referenceId, timeframe, fee, totalSettlement, paymentReason } = transaction;
+  const { amount, currency, referenceId, timeframe, fee, totalSettlement, paymentReason, isDirectDebit, mandateReference } = transaction;
   const symbol = CURRENCY_SYMBOLS[currency] || '$';
 
   return (
@@ -57,6 +57,12 @@ const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onVie
             </div>
             
             <div className="pt-2 space-y-3">
+              {isDirectDebit && mandateReference && (
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Mandate Ref</span>
+                  <span className="text-[10px] font-mono font-black text-blue-700 dark:text-blue-300 uppercase">{mandateReference}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Payment Purpose</span>
                 <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase truncate max-w-[150px]">{paymentReason || 'N/A'}</span>

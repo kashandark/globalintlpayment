@@ -49,6 +49,8 @@ export interface Transaction {
   eurAmount?: number; 
   isSepa?: boolean;
   isHsbcGlobal?: boolean;
+  isDirectDebit?: boolean;
+  mandateReference?: string;
   timeframe?: string;
   fee?: string;
   totalSettlement?: string;
@@ -264,17 +266,19 @@ const App: React.FC = () => {
         time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' GMT',
         amount: details.amount,
         currency: details.currency,
-        type: 'out',
+        type: details.isDirectDebit ? 'in' : 'out',
         status: 'Settled',
         referenceId: refId,
         recipient: details.recipient,
         recipientAccountNumber: details.recipientAccountNumber,
         bic: details.bic,
-        balanceAfter: balance - eurValue,
+        balanceAfter: details.isDirectDebit ? balance + eurValue : balance - eurValue,
         exchangeRate: details.rate,
         eurAmount: eurValue,
         isSepa: details.isSepa,
         isHsbcGlobal: details.isHsbcGlobal,
+        isDirectDebit: details.isDirectDebit,
+        mandateReference: details.mandateReference,
         timeframe: details.timeframe,
         fee: details.fee,
         totalSettlement: totalInSelectedCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),

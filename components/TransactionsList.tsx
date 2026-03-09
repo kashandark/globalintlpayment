@@ -240,6 +240,11 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-black text-gray-900 dark:text-white truncate group-hover:text-[#002366] dark:group-hover:text-blue-400 tracking-tight">{tx.name}</p>
+                    {tx.isDirectDebit && (
+                      <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 text-blue-700 dark:text-blue-400">
+                        Direct Debit
+                      </span>
+                    )}
                     <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
                       tx.status === 'Cleared' || tx.status === 'Settled' 
                         ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-900/30 text-green-700 dark:text-green-400' 

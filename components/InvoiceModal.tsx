@@ -157,11 +157,14 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
 
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Beneficiary Identity</h4>
+                      <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">{transaction.isDirectDebit ? 'Debtor Identity' : 'Beneficiary Identity'}</h4>
                       <p className="text-sm font-black text-gray-900">{beneficiaryName}</p>
                       <p className="text-[10px] font-mono text-gray-500">{transaction.isHsbcGlobal ? 'HSBC INTERNAL' : beneficiaryIban}</p>
                       {(transaction.recipientAccountNumber || transaction.isHsbcGlobal) && (
                         <p className="text-[10px] font-mono text-gray-400">ACC: {transaction.recipientAccountNumber || 'N/A'}</p>
+                      )}
+                      {transaction.isDirectDebit && transaction.mandateReference && (
+                        <p className="text-[10px] font-black text-blue-600 mt-1 uppercase tracking-tighter">MANDATE: {transaction.mandateReference}</p>
                       )}
                     </div>
                     <div>
@@ -222,7 +225,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                     <div className="flex items-center gap-2">
                        <Shield className="w-5 h-5 text-[#002366]" />
                        <span className="font-black text-lg uppercase tracking-tight">
-                         {transaction.isHsbcGlobal ? 'HSBC Global Transfer Advice' : transaction.isSepa ? 'SEPA Credit Transfer Advice (SCT)' : 'SWIFT MT103 Transmission Advice'}
+                         {transaction.isDirectDebit ? 'SEPA Direct Debit Advice (SDD)' : transaction.isHsbcGlobal ? 'HSBC Global Transfer Advice' : transaction.isSepa ? 'SEPA Credit Transfer Advice (SCT)' : 'SWIFT MT103 Transmission Advice'}
                        </span>
                     </div>
                     <span className="font-black text-gray-400">PAGE 02 OF 03</span>
@@ -241,7 +244,13 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
                        <div className="bg-black text-white p-2 font-black text-[10px] uppercase tracking-widest">-- Message Text Block 4 --</div>
                        
                        <div className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-2 px-2">
-                          <div className="font-bold text-gray-400">:20: SENDER REFERENCE</div>
+                          {transaction.isDirectDebit && (
+                             <>
+                               <div className="font-bold text-gray-400">:21: MANDATE REFERENCE</div>
+                               <div className="font-black text-blue-600">{transaction.mandateReference}</div>
+                             </>
+                           )}
+                           <div className="font-bold text-gray-400">:20: SENDER REFERENCE</div>
                           <div className="font-black">{transaction.referenceId}</div>
 
                           <div className="font-bold text-gray-400">:32A: VALUE DATE/CURR/AMNT</div>
