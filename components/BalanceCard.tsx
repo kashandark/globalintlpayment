@@ -18,13 +18,20 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, user }) => {
   const [isVisible, setIsVisible] = React.useState(true);
 
   const getCurrencySymbol = (currency?: string) => {
-    switch (currency) {
-      case 'EUR': return '€';
-      case 'GBP': return '£';
-      case 'JPY':
-      case 'CNY': return '¥';
-      default: return '$';
-    }
+    const symbols: Record<string, string> = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'AED': 'د.إ',
+      'PKR': '₨',
+      'CHF': 'Fr.',
+      'HKD': 'HK$',
+      'QAR': 'ر.ق',
+      'CNY': '¥',
+      'SAR': 'SR',
+      'JPY': '¥',
+    };
+    return symbols[currency || 'USD'] || '$';
   };
 
   return (

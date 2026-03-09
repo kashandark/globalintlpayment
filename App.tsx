@@ -97,6 +97,7 @@ const App: React.FC = () => {
     accountNumber?: string;
   } | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [balance, setBalance] = useState(0); 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -292,10 +293,12 @@ const App: React.FC = () => {
         setTransactions(prev => [newTx, ...prev]);
         setLastTransaction(newTx);
         setShowSuccessModal(true);
-      } catch (err) {
+      } catch (err: any) {
+        setErrorMessage(err.message || "An unexpected error occurred during the clearing process.");
         setShowErrorModal(true);
       }
     } else {
+      setErrorMessage("The transfer authorization was rejected by the local node.");
       setShowErrorModal(true);
     }
   };
@@ -423,7 +426,7 @@ const App: React.FC = () => {
         <p className="text-sm text-gray-500 dark:text-gray-400">© 2024 Global International Banking Group. Secure Tier-1 International Entity.</p>
       </footer>
 
-      {showErrorModal && <ErrorModal onClose={() => setShowErrorModal(false)} />}
+      {showErrorModal && <ErrorModal onClose={() => { setShowErrorModal(false); setErrorMessage(undefined); }} message={errorMessage} />}
       {showSuccessModal && lastTransaction && (
         <SuccessModal 
           onClose={() => setShowSuccessModal(false)} 
@@ -439,6 +442,7 @@ const App: React.FC = () => {
         <InvoiceModal 
           transaction={selectedInvoice} 
           initialTab={invoiceInitialTab}
+          user={user}
           onClose={() => {
             setSelectedInvoice(null);
             document.title = 'Global International Banking';

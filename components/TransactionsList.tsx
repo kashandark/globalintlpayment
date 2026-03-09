@@ -28,6 +28,8 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'CHF': 'Fr.',
   'HKD': 'HK$',
   'QAR': 'ر.ق',
+  'CNY': '¥',
+  'SAR': 'SR',
 };
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt }) => {

@@ -18,6 +18,8 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'CHF': 'Fr.',
   'HKD': 'HK$',
   'QAR': 'ر.ق',
+  'CNY': '¥',
+  'SAR': 'SR',
 };
 
 const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onViewReceipt }) => {

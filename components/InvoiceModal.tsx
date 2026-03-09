@@ -10,6 +10,13 @@ interface InvoiceModalProps {
   transaction: Transaction;
   onClose: () => void;
   initialTab?: 'receipt' | 'swift' | 'remittance' | 'debitNote' | 'full';
+  user?: {
+    name: string;
+    bankEntity?: string;
+    iban?: string;
+    swiftCode?: string;
+    accountNumber?: string;
+  } | null;
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -23,7 +30,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'QAR': 'ر.ق',
 };
 
-const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => {
+const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initialTab = 'receipt', user }) => {
   const [zoom, setZoom] = useState(0.65); 
   const containerRef = useRef<HTMLDivElement>(null);
   const printableRef = useRef<HTMLDivElement>(null);
@@ -75,12 +82,12 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => 
   const formattedAmount = amountValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const isOut = transaction.type === 'out';
 
-  // Sender Details (SJ LLC)
-  const USER_ACCOUNT_NAME = "SJ LLC";
-  const USER_ACCOUNT_BANK = "HSBC TRINKAUS & BURKHARDT";
-  const USER_ACCOUNT_IBAN = "DE07 3003 0880 5230 3145 96";
-  const USER_ACCOUNT_BIC = "TUBDDEDDXXX";
-  const USER_ACCOUNT_NO = "5230314596";
+  // Sender Details (Dynamic from user or fallback to hardcoded if not provided)
+  const USER_ACCOUNT_NAME = user?.name || "SJ LLC";
+  const USER_ACCOUNT_BANK = user?.bankEntity || "HSBC TRINKAUS & BURKHARDT";
+  const USER_ACCOUNT_IBAN = user?.iban || "DE07 3003 0880 5230 3145 96";
+  const USER_ACCOUNT_BIC = user?.swiftCode || "TUBDDEDDXXX";
+  const USER_ACCOUNT_NO = user?.accountNumber || "5230314596";
 
   const senderName = isOut ? USER_ACCOUNT_NAME : (transaction.recipientName || transaction.name).toUpperCase();
   const senderIban = isOut ? USER_ACCOUNT_IBAN : (transaction.recipient || "N/A");

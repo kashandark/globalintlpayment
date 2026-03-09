@@ -104,6 +104,8 @@ const PAYMENT_REASONS = [
   'Loan Repayment',
   'Intercompany Transfer',
   'Charitable Donation',
+  'Donation',
+  'Zakat',
   'Medical Expenses',
   'Travel Expenses'
 ];
@@ -139,6 +141,15 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
   const [isSavingRecipient, setIsSavingRecipient] = useState(false);
 
   const validationTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (transferType === 'SEPA_DIRECT_DEBIT' && recipientName && recipientIban.replace(/\s/g, '').length >= 4) {
+      const last4 = recipientIban.replace(/\s/g, '').slice(-4);
+      const year = new Date().getFullYear();
+      const generated = `${recipientName.trim().replace(/\s+/g, '-').toUpperCase()}-${last4}-SUB-${year}`;
+      setMandateReference(generated);
+    }
+  }, [transferType, recipientName, recipientIban]);
 
   useEffect(() => {
     const loadRecipients = async () => {
@@ -218,7 +229,20 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
           ibanLength: hubInfo.ibanLength || cleanIban.length
         };
       } else {
-        setIbanData(null);
+        if (transferType === 'SEPA_DIRECT_DEBIT') {
+          setIbanData({
+            isValid: true,
+            countryCode: cleanIban.substring(0, 2),
+            countryName: 'SEPA Zone',
+            currency: 'EUR',
+            bankName: 'Verified SEPA Institution',
+            bic: 'SWIFXXXX',
+            isSepa: 'Yes',
+            ibanLength: cleanIban.length
+          });
+        } else {
+          setIbanData(null);
+        }
         return;
       }
 
@@ -231,7 +255,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
         setCurrency('EUR');
       }
 
-      if (finalData.isSepa === 'Yes' && finalData.isSwift === 'Yes') {
+      if (transferType === 'SEPA_DIRECT_DEBIT') {
+        setSelectedMethod('SEPA');
+      } else if (finalData.isSepa === 'Yes' && finalData.isSwift === 'Yes') {
         setSelectedMethod(null);
       } else if (finalData.isSepa === 'Yes') {
         setSelectedMethod('SEPA');
@@ -242,7 +268,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
       }
     } catch {
       setIbanData(null);
-      setSelectedMethod(null);
+      if (transferType === 'STANDARD') {
+        setSelectedMethod(null);
+      }
     } finally {
       setIsValidating(false);
     }
@@ -255,7 +283,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
       validationTimeout.current = setTimeout(() => validateIban(recipientIban), 800);
     } else {
       setIbanData(null);
-      setSelectedMethod(null);
+      if (transferType === 'STANDARD') {
+        setSelectedMethod(null);
+      }
     }
     return () => { if (validationTimeout.current) clearTimeout(validationTimeout.current); };
   }, [recipientIban]);
@@ -285,6 +315,20 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ibanData?.isValid || !selectedMethod) return;
+
+    // Pre-validation: Check if user has enough balance
+    const transferAmount = parseFloat(amount || '0');
+    const feeAmount = parseFloat(getFee());
+    const totalInSelectedCurrency = transferAmount + feeAmount;
+    const eurEquivalentValue = (totalInSelectedCurrency / rates[currency]) * 0.92;
+
+    const session = JSON.parse(localStorage.getItem('asdipro_session') || '{}');
+    const currentBalance = session.user?.balance || 0;
+
+    if (eurEquivalentValue > currentBalance) {
+      onTransferComplete(false, { error: 'Insufficient Liquidity in Clearing Account' });
+      return;
+    }
     
     setIsProcessing(true);
     setProcessStep(0);
@@ -801,7 +845,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
              <div className="space-y-1 transition-all">
                 {processStep >= 1 && <div className="animate-in slide-in-from-left duration-300">&gt; AUTHENTICATING {selectedMethod} CHANNEL... <span className="text-white">OK</span></div>}
                 {processStep >= 2 && <div className="animate-in slide-in-from-left duration-300">&gt; ESTABLISHING AES-256 TUNNEL... <span className="text-white">OK</span></div>}
-                {processStep >= 3 && <div className="animate-in slide-in-from-left duration-300">&gt; VERIFYING BENEFICIARY: {recipientName.toUpperCase()}... <span className="text-white">OK</span></div>}
+                {processStep >= 3 && <div className="animate-in slide-in-from-left duration-300">&gt; {transferType === 'SEPA_DIRECT_DEBIT' ? 'VERIFYING DEBTOR' : 'VERIFYING BENEFICIARY'}: {recipientName.toUpperCase()}... <span className="text-white">OK</span></div>}
                 {processStep >= 4 && <div className="animate-in slide-in-from-left duration-300">&gt; COMPLIANCE AML VALIDATION... <span className="text-white">PASSED</span></div>}
                 {processStep >= 5 && <div className="animate-in slide-in-from-left duration-300">&gt; ENCRYPTING CLEARING PAYLOAD... <span className="text-white">OK</span></div>}
                 {processStep >= 6 && <div className="animate-in slide-in-from-left duration-300">&gt; BROADCASTING TO {ibanData?.countryCode || 'INTL'} NODE... <span className="text-white">OK</span></div>}
@@ -827,7 +871,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
 
         <button 
           type="submit"
-          disabled={!ibanData?.isValid || !selectedMethod || isProcessing || !amount || !recipientName || (selectedMethod !== 'HSBC_GLOBAL' && transferType !== 'SEPA_DIRECT_DEBIT' && !bicCode) || (transferType === 'SEPA_DIRECT_DEBIT' && !mandateReference)}
+          disabled={!ibanData?.isValid || !selectedMethod || isProcessing || isValidating || !amount || !recipientName || (selectedMethod !== 'HSBC_GLOBAL' && transferType !== 'SEPA_DIRECT_DEBIT' && !bicCode) || (transferType === 'SEPA_DIRECT_DEBIT' && !mandateReference)}
           className={`w-full py-6 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.25em] shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-40 ${
             selectedMethod === 'HSBC_GLOBAL' ? 'bg-indigo-600 hover:bg-indigo-700' : selectedMethod === 'SEPA' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#002366] hover:bg-blue-900'
           }`}
@@ -836,6 +880,11 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
             <div className="flex items-center gap-3">
                <Loader2 className="w-6 h-6 animate-spin" />
                <span>{transferType === 'SEPA_DIRECT_DEBIT' ? 'Clearing Protocol Active: DEBIT' : 'Clearing Protocol Active'}</span>
+            </div>
+          ) : isValidating ? (
+            <div className="flex items-center gap-3">
+               <Loader2 className="w-6 h-6 animate-spin" />
+               <span>Validating Node...</span>
             </div>
           ) : (
             <span className="flex items-center gap-2">

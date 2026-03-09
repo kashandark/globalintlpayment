@@ -1,12 +1,15 @@
 
 import React from 'react';
-import { X, ShieldAlert, AlertTriangle, RefreshCcw } from 'lucide-react';
+import { X, ShieldAlert, AlertTriangle, RefreshCcw, Terminal } from 'lucide-react';
 
 interface ErrorModalProps {
   onClose: () => void;
+  message?: string;
 }
 
-const ErrorModal: React.FC<ErrorModalProps> = ({ onClose }) => {
+const ErrorModal: React.FC<ErrorModalProps> = ({ onClose, message }) => {
+  const [showLogs, setShowLogs] = React.useState(false);
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 sm:px-0">
       <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={onClose}></div>
@@ -28,10 +31,26 @@ const ErrorModal: React.FC<ErrorModalProps> = ({ onClose }) => {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               <p className="text-sm text-red-800 dark:text-red-200 leading-relaxed font-medium">
-                Security Alert: Remote server rejected the connection due to high-volume encryption mismatch. Funds returned to ASDI account.
+                {message || "Security Alert: Remote server rejected the connection due to high-volume encryption mismatch. Funds returned to ASDI account."}
               </p>
             </div>
           </div>
+
+          {showLogs && (
+            <div className="mb-6 bg-gray-900 rounded-xl p-4 font-mono text-[10px] text-red-400 border border-red-900/30 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2 mb-2 border-b border-red-900/20 pb-1 opacity-50">
+                <Terminal className="w-3 h-3" />
+                <span>[ERROR_TRACE_LOG]</span>
+              </div>
+              <div className="space-y-1">
+                <div>&gt; TIMESTAMP: {new Date().toISOString()}</div>
+                <div>&gt; STATUS: 503_SERVICE_UNAVAILABLE</div>
+                <div>&gt; MESSAGE: {message || "ENCRYPTION_LAYER_MISMATCH"}</div>
+                <div>&gt; ACTION: ROLLBACK_INITIATED</div>
+                <div className="text-white">&gt; FUNDS_STATUS: RESTORED_TO_SOURCE</div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             <button
@@ -41,11 +60,11 @@ const ErrorModal: React.FC<ErrorModalProps> = ({ onClose }) => {
               ACKNOWLEDGE
             </button>
             <button
-              onClick={onClose}
+              onClick={() => setShowLogs(!showLogs)}
               className="w-full py-3 text-gray-500 dark:text-gray-400 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCcw className="w-4 h-4" />
-              Check Server Logs
+              {showLogs ? 'Hide Server Logs' : 'Check Server Logs'}
             </button>
           </div>
         </div>
