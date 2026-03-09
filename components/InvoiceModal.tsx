@@ -20,6 +20,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'PKR': '₨',
   'CHF': 'Fr.',
   'HKD': 'HK$',
+  'QAR': 'ر.ق',
 };
 
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose }) => {

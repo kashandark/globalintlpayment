@@ -61,7 +61,9 @@ const FINANCIAL_HUB_DB: Record<string, Partial<IBANMetadata>> = {
   'IE': { countryName: 'Ireland', currency: 'EUR', ibanLength: 22, centralBankName: 'Central Bank of Ireland', centralBankUrl: 'https://www.centralbank.ie/', membership: 'eu_member', isEuMember: 'Yes', isSepa: 'Yes', isSwift: 'Yes' },
   'LT': { countryName: 'Lithuania', currency: 'EUR', ibanLength: 20, centralBankName: 'Bank of Lithuania', centralBankUrl: 'https://www.lb.lt/', membership: 'eu_member', isEuMember: 'Yes', isSepa: 'Yes', isSwift: 'Yes' },
   'SA': { countryName: 'Saudi Arabia', currency: 'SAR', ibanLength: 24, centralBankName: 'Saudi Central Bank', centralBankUrl: 'https://www.sama.gov.sa/', membership: 'gcc_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' },
-  'HK': { countryName: 'Hong Kong', currency: 'HKD', ibanLength: 0, centralBankName: 'Hong Kong Monetary Authority', centralBankUrl: 'https://www.hkma.gov.hk/', membership: 'non_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' }
+  'HK': { countryName: 'Hong Kong', currency: 'HKD', ibanLength: 0, centralBankName: 'Hong Kong Monetary Authority', centralBankUrl: 'https://www.hkma.gov.hk/', membership: 'non_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' },
+  'ES': { countryName: 'Spain', currency: 'EUR', ibanLength: 24, centralBankName: 'Banco de España', centralBankUrl: 'https://www.bde.es/', membership: 'eu_member', isEuMember: 'Yes', isSepa: 'Yes', isSwift: 'Yes' },
+  'QA': { countryName: 'Qatar', currency: 'QAR', ibanLength: 29, centralBankName: 'Qatar Central Bank', centralBankUrl: 'https://www.qcb.gov.qa/', membership: 'gcc_member', isEuMember: 'No', isSepa: 'No', isSwift: 'Yes' }
 };
 
 const INITIAL_RATES: Record<string, number> = {
@@ -73,10 +75,11 @@ const INITIAL_RATES: Record<string, number> = {
   'CHF': 0.89,
   'CNY': 7.24,
   'SAR': 3.75,
-  'HKD': 7.82
+  'HKD': 7.82,
+  'QAR': 3.64
 };
 
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'PKR', 'CHF', 'CNY', 'SAR', 'HKD'];
+const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'PKR', 'CHF', 'CNY', 'SAR', 'HKD', 'QAR'];
 
 const PAYMENT_REASONS = [
   'Invoice Settlement',
@@ -87,7 +90,10 @@ const PAYMENT_REASONS = [
   'Salary / Payroll Posting',
   'Consultancy Services',
   'Software Licensing',
-  'Marketing Retainer'
+  'Marketing Retainer',
+  'Family Maintenance',
+  'Education',
+  'Investment'
 ];
 
 const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
@@ -643,17 +649,22 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
                       </label>
                    </div>
                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">Reason for Payment</label>
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">Reason for Payment {ibanData?.countryCode === 'PK' && <span className="text-red-500">(MANDATORY FOR SBP)</span>}</label>
                       <div className="relative">
                         <select 
                           value={paymentReason}
                           onChange={(e) => setPaymentReason(e.target.value)}
-                          className="w-full px-4 py-4 bg-white dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-black dark:text-white appearance-none outline-none focus:border-[#002366] dark:focus:border-blue-600 transition-colors"
+                          className={`w-full px-4 py-4 bg-white dark:bg-[#1a1a1a] border-2 rounded-xl text-sm font-bold text-black dark:text-white appearance-none outline-none transition-colors ${ibanData?.countryCode === 'PK' ? 'border-amber-200 dark:border-amber-900/50 focus:border-amber-500' : 'border-gray-100 dark:border-gray-800 focus:border-[#002366] dark:focus:border-blue-600'}`}
                         >
                           {PAYMENT_REASONS.map(reason => <option key={reason} value={reason}>{reason}</option>)}
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                       </div>
+                      {ibanData?.countryCode === 'PK' && (
+                        <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tight px-1">
+                          Warning: Incorrect codes may result in funds being frozen by the State Bank of Pakistan (SBP).
+                        </p>
+                      )}
                    </div>
                 </div>
 
@@ -716,6 +727,17 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
                 </select>
                 <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400 dark:text-gray-500 pointer-events-none" />
               </div>
+              {ibanData?.countryCode === 'PK' && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 animate-in fade-in slide-in-from-right-4 duration-500">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-[10px] font-black text-blue-900 dark:text-blue-200 uppercase tracking-widest">Expert Tip: Currency Choice</span>
+                  </div>
+                  <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium leading-relaxed">
+                    Sending <strong>EUR</strong> usually results in a better exchange rate if the receiving bank (HBL, MCB, Alfalah) handles the conversion. Sending <strong>PKR</strong> gives you certainty on the final amount received.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,47 +1,65 @@
 
 -- Global International Banking Database Schema
--- Compatible with PostgreSQL (Recommended)
+-- Optimized for Supabase (PostgreSQL)
 
--- 1. Create the database (Execute this in your PSQL terminal)
--- CREATE DATABASE global_int_banking;
-
--- 2. Create the Users table
+-- 1. Profiles Table
 -- Stores institutional account information and current liquidity balance
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    account_number VARCHAR(34) UNIQUE NOT NULL,
-    balance DECIMAL(20, 2) DEFAULT 1000000000.00,
+-- This table should be linked to Supabase Auth users
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    role TEXT CHECK (role IN ('admin', 'user')) DEFAULT 'user',
+    balance DECIMAL(20, 2) DEFAULT 0.00,
+    currency TEXT DEFAULT 'USD',
+    bank_entity TEXT,
+    swift_code TEXT,
+    iban TEXT,
+    account_number TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Create the Transactions table
+-- 2. Transactions Table
 -- Stores all clearing and settlement records
 CREATE TABLE IF NOT EXISTS transactions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    name VARCHAR(255) NOT NULL, 
-    date VARCHAR(50) NOT NULL,
-    amount DECIMAL(20, 2) NOT NULL,
-    currency VARCHAR(10) NOT NULL,
-    type VARCHAR(10) CHECK (type IN ('in', 'out')),
-    status VARCHAR(50) NOT NULL,
-    reference_id VARCHAR(50) UNIQUE NOT NULL,
-    recipient_iban VARCHAR(50),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    recipient_name TEXT,
+    amount TEXT NOT NULL, -- Stored as string to preserve formatting/precision if needed
+    currency TEXT NOT NULL,
+    type TEXT CHECK (type IN ('in', 'out')),
+    status TEXT NOT NULL,
+    reference_id TEXT UNIQUE NOT NULL,
+    recipient_iban TEXT,
+    bic TEXT,
     payment_reason TEXT,
+    is_sepa BOOLEAN DEFAULT false,
+    timeframe TEXT,
+    fee TEXT,
+    total_settlement TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Initial Seed Data
--- Insert the primary Institutional Account (SJ LLC)
--- Use this for testing login
-INSERT INTO users (username, password_hash, full_name, account_number, balance)
-VALUES (
-    'asdi_global', 
-    'admin123', 
-    'SJ LLC', 
-    'DE07300308805230314596', 
-    1000000000.00
-) ON CONFLICT (username) DO NOTHING;
+-- 3. Recipients Table
+-- Address book for institutional transfers
+CREATE TABLE IF NOT EXISTS recipients (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    iban TEXT NOT NULL,
+    bic TEXT NOT NULL,
+    account_number TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Enable Row Level Security (RLS)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipients ENABLE ROW LEVEL SECURITY;
+
+-- 5. Basic RLS Policies (Example: Users can only see their own data)
+-- CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+-- CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+-- CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT USING (
+--   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+-- );

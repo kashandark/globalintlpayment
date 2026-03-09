@@ -17,6 +17,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'PKR': '₨',
   'CHF': 'Fr.',
   'HKD': 'HK$',
+  'QAR': 'ر.ق',
 };
 
 const SuccessModal: React.FC<SuccessModalProps> = ({ onClose, transaction, onViewReceipt }) => {

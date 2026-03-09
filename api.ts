@@ -222,10 +222,14 @@ class ApiService {
   }
 
   async updateProfile(id: string, updates: Partial<UserProfile>): Promise<any> {
+    // Clean updates to remove primary key and metadata fields that shouldn't be updated
+    const { id: _id, created_at: _created_at, ...cleanUpdates } = updates as any;
+
     const { data, error } = await supabase
       .from('profiles')
-      .update(updates)
-      .eq('id', id);
+      .update(cleanUpdates)
+      .eq('id', id)
+      .select();
 
     if (error) throw error;
     return data;

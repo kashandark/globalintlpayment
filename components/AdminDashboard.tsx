@@ -13,6 +13,21 @@ import {
 } from 'lucide-react';
 import { api, UserProfile } from '../api';
 
+const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'PKR', 'CHF', 'CNY', 'SAR', 'HKD', 'QAR'];
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  'USD': '$',
+  'EUR': '€',
+  'GBP': '£',
+  'AED': 'د.إ',
+  'PKR': '₨',
+  'CHF': 'Fr.',
+  'HKD': 'HK$',
+  'QAR': 'ر.ق',
+  'CNY': '¥',
+  'SAR': 'SR',
+};
+
 const AdminDashboard: React.FC = () => {
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,8 +118,9 @@ const AdminDashboard: React.FC = () => {
       setMessage({ type: 'success', text: 'Profile updated successfully' });
       setEditingId(null);
       loadProfiles();
-    } catch (e) {
-      setMessage({ type: 'error', text: 'Failed to update profile' });
+    } catch (e: any) {
+      console.error('Update error:', e);
+      setMessage({ type: 'error', text: e.message || 'Failed to update profile' });
     } finally {
       setIsSaving(false);
       setTimeout(() => setMessage(null), 3000);
@@ -229,11 +245,9 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => setRegForm({...regForm, currency: e.target.value})}
                         className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-bold outline-none focus:border-blue-600 dark:text-white transition-all appearance-none"
                       >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="JPY">JPY</option>
-                        <option value="CNY">CNY</option>
+                        {SUPPORTED_CURRENCIES.map(curr => (
+                          <option key={curr} value={curr}>{curr}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -401,16 +415,14 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => setEditForm({...editForm, currency: e.target.value})}
                         className="px-3 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600 appearance-none"
                       >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="JPY">JPY</option>
-                        <option value="CNY">CNY</option>
+                        {SUPPORTED_CURRENCIES.map(curr => (
+                          <option key={curr} value={curr}>{curr}</option>
+                        ))}
                       </select>
                     </div>
                   ) : (
                     <p className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                      {profile.currency === 'EUR' ? '€' : profile.currency === 'GBP' ? '£' : profile.currency === 'JPY' ? '¥' : profile.currency === 'CNY' ? '¥' : '$'}
+                      {CURRENCY_SYMBOLS[profile.currency || 'USD'] || '$'}
                       {profile.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       <span className="text-[10px] ml-1 opacity-60">{profile.currency || 'USD'}</span>
                     </p>
