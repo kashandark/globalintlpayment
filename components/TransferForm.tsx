@@ -6,6 +6,7 @@ import {
   Globe, Server, Send, Wallet, RefreshCw, TrendingUp, Zap, Clock, User, ChevronDown, Search, Plus, Save
 } from 'lucide-react';
 import { api, Recipient } from '../api';
+import TransferConfirmationModal from './TransferConfirmationModal';
 
 interface TransferFormProps {
   onTransferComplete: (success: boolean, details?: { 
@@ -139,6 +140,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [shouldSaveRecipient, setShouldSaveRecipient] = useState(false);
   const [isSavingRecipient, setIsSavingRecipient] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const validationTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -312,7 +314,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
     return isManual ? "15.00" : "45.00";
   };
 
-  const handleTransfer = async (e: React.FormEvent) => {
+  const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ibanData?.isValid || !selectedMethod) return;
 
@@ -329,7 +331,12 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
       onTransferComplete(false, { error: 'Insufficient Liquidity in Clearing Account' });
       return;
     }
-    
+
+    setShowConfirmModal(true);
+  };
+
+  const confirmTransfer = async () => {
+    setShowConfirmModal(false);
     setIsProcessing(true);
     setProcessStep(0);
     
@@ -350,11 +357,11 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
     onTransferComplete(true, {
       amount: amount,
       recipient: recipientIban,
-      recipientName: recipientName || (ibanData.bankName || "Verified Participant"),
+      recipientName: recipientName || (ibanData?.bankName || "Verified Participant"),
       recipientAccountNumber: recipientAccountNumber,
-      bic: bicCode || (ibanData.bic || "SWIFXXXX"),
-      bank: ibanData.bankName || "Institutional Node",
-      centralBankName: ibanData.centralBankName || "Reserve Hub",
+      bic: bicCode || (ibanData?.bic || "SWIFXXXX"),
+      bank: ibanData?.bankName || "Institutional Node",
+      centralBankName: ibanData?.centralBankName || "Reserve Hub",
       currency: currency,
       rate: rates[currency],
       isSepa: selectedMethod === 'SEPA' || transferType === 'SEPA_DIRECT_DEBIT',
@@ -832,7 +839,26 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
           </div>
         )}
 
-        {isProcessing && (
+        {/* Confirmation Modal */}
+      <TransferConfirmationModal 
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmTransfer}
+        details={{
+          amount: amount,
+          currency: currency,
+          recipientName: recipientName || (ibanData?.bankName || "Verified Participant"),
+          recipientIban: recipientIban,
+          bic: bicCode || (ibanData?.bic || "SWIFXXXX"),
+          fee: getFee(),
+          timeframe: getTimeframe(),
+          paymentReason: paymentReason,
+          eurEquivalent: eurEquivalent,
+          method: selectedMethod || 'STANDARD'
+        }}
+      />
+
+      {isProcessing && (
           <div className="bg-gray-900 rounded-2xl p-4 font-mono text-[10px] text-green-400 space-y-1.5 border border-gray-800 shadow-inner overflow-hidden">
              <div className="flex items-center justify-between opacity-50 mb-2 border-b border-gray-800 pb-1">
                <div className="flex items-center gap-2">

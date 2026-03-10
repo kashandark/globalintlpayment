@@ -25,6 +25,7 @@ import TransactionsList from './components/TransactionsList';
 import ErrorModal from './components/ErrorModal';
 import SuccessModal from './components/SuccessModal';
 import InvoiceModal from './components/InvoiceModal';
+import TransferTracker from './components/TransferTracker';
 import Login from './components/Login';
 import RateTicker from './components/RateTicker';
 import AdminDashboard from './components/AdminDashboard';
@@ -106,7 +107,7 @@ const App: React.FC = () => {
   const [invoiceInitialTab, setInvoiceInitialTab] = useState<'receipt' | 'swift' | 'remittance' | 'debitNote' | 'full'>('receipt');
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [authNodes, setAuthNodes] = useState<AuthNode[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transfer' | 'history' | 'admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transfer' | 'history' | 'track' | 'admin'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved === 'true';
@@ -174,7 +175,20 @@ const App: React.FC = () => {
         setIsLoggedIn(false);
       }
     };
+
     checkSession();
+
+    const { data: { subscription } } = api.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+        setIsLoggedIn(false);
+        setUser(null);
+        localStorage.removeItem('asdipro_session');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const generateRandomNodes = () => {
@@ -337,6 +351,11 @@ const App: React.FC = () => {
               transactions={transactions} 
               onViewReceipt={(tx) => openInvoice(tx, 'full')} 
             />
+          ) : activeTab === 'track' ? (
+            <TransferTracker 
+              transactions={transactions} 
+              onViewReceipt={(tx) => openInvoice(tx, 'full')} 
+            />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
               <div className="lg:col-span-2 space-y-8">
@@ -364,6 +383,16 @@ const App: React.FC = () => {
                     </div>
                     <h4 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-2">Transaction Ledger</h4>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tight">Review settlement history</p>
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('track')}
+                    className="bg-white dark:bg-[#111] p-8 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all group text-left"
+                  >
+                    <div className="bg-blue-50 dark:bg-blue-900/20 w-12 h-12 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 mb-6 group-hover:bg-blue-600 dark:group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-2">Track Transfer</h4>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tight">Real-time ISO-20022 Monitoring</p>
                   </button>
                 </div>
                 <TransactionsList 

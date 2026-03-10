@@ -169,12 +169,28 @@ class ApiService {
   }
 
   async logout() {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Sign out error', e);
+    }
     localStorage.removeItem('asdipro_session');
   }
 
   async getSession() {
-    return await supabase.auth.getSession();
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error && error.message.includes('Refresh Token Not Found')) {
+        return { data: { session: null }, error: null };
+      }
+      return { data, error };
+    } catch (e) {
+      return { data: { session: null }, error: e };
+    }
+  }
+
+  onAuthStateChange(callback: (event: string, session: any) => void) {
+    return supabase.auth.onAuthStateChange(callback);
   }
 
   async fetchRecipients(): Promise<Recipient[]> {

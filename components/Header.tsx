@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { Bell, User, Settings, LogOut, Shield, Layout, Send, History, Moon, Sun } from 'lucide-react';
+import { Bell, User, Settings, LogOut, Shield, Layout, Send, History, Moon, Sun, Activity } from 'lucide-react';
 
 interface HeaderProps {
   onLogout: () => void;
-  onTabChange: (tab: 'dashboard' | 'transfer' | 'history' | 'admin') => void;
+  onTabChange: (tab: 'dashboard' | 'transfer' | 'history' | 'track' | 'admin') => void;
   user: { name: string; role?: string } | null;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
@@ -104,6 +104,16 @@ const Header: React.FC<HeaderProps> = ({ onLogout, onTabChange, user, isDarkMode
                       >
                         <History className="w-4 h-4" />
                         Transaction Ledger
+                      </button>
+                      <button 
+                        onClick={() => {
+                          onTabChange('track');
+                          setIsDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all"
+                      >
+                        <Activity className="w-4 h-4" />
+                        Track Transfer
                       </button>
                     </div>
                   </div>
