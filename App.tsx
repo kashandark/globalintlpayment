@@ -29,6 +29,7 @@ import TransferTracker from './components/TransferTracker';
 import Login from './components/Login';
 import RateTicker from './components/RateTicker';
 import AdminDashboard from './components/AdminDashboard';
+import DisputeModal from './components/DisputeModal';
 import { api, Recipient } from './api';
 
 export interface Transaction {
@@ -41,6 +42,8 @@ export interface Transaction {
   currency: string;
   type: 'in' | 'out';
   status: string;
+  utr?: string;
+  createdAt?: string;
   referenceId?: string;
   recipient?: string;
   recipientAccountNumber?: string;
@@ -57,6 +60,7 @@ export interface Transaction {
   totalSettlement?: string;
   paymentReason?: string;
   feeInstruction?: 'OUR' | 'SHA' | 'BEN';
+  disputeStatus?: 'pending' | 'under_review' | 'resolved' | 'rejected';
 }
 
 interface AuthNode {
@@ -104,6 +108,7 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Transaction | null>(null);
+  const [disputeTransaction, setDisputeTransaction] = useState<Transaction | null>(null);
   const [invoiceInitialTab, setInvoiceInitialTab] = useState<'receipt' | 'swift' | 'remittance' | 'debitNote' | 'full'>('receipt');
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [authNodes, setAuthNodes] = useState<AuthNode[]>([]);
@@ -204,26 +209,27 @@ const App: React.FC = () => {
     return nodes;
   };
 
-  useEffect(() => {
+  const loadData = async () => {
     if (!isLoggedIn) return;
+    setIsLoadingData(true);
+    try {
+      const [txs, bal] = await Promise.all([
+        api.fetchTransactions(),
+        api.fetchBalance()
+      ]);
+      setTransactions(txs);
+      setBalance(bal);
+    } catch (err) {
+      console.error("Failed to synchronize with clearing hub", err);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
-    const loadInitialData = async () => {
-      setIsLoadingData(true);
-      try {
-        const [txs, bal] = await Promise.all([
-          api.fetchTransactions(),
-          api.fetchBalance()
-        ]);
-        setTransactions(txs);
-        setBalance(bal);
-      } catch (err) {
-        console.error("Failed to synchronize with clearing hub", err);
-      } finally {
-        setIsLoadingData(false);
-      }
-    };
-
-    loadInitialData();
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadData();
+    }
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -271,6 +277,7 @@ const App: React.FC = () => {
       const eurValue = (totalInSelectedCurrency / (details.rate || 1.0)) * eurRate;
       
       const refId = `FTX-${Math.random().toString().slice(-8).toUpperCase()}`;
+      const utr = `GIBK${Math.random().toString().slice(-12).toUpperCase()}`;
       const now = new Date();
       
       const newTx: Transaction = {
@@ -282,7 +289,8 @@ const App: React.FC = () => {
         amount: details.amount,
         currency: details.currency,
         type: details.isDirectDebit ? 'in' : 'out',
-        status: 'Settled',
+        status: 'Processing',
+        utr: utr,
         referenceId: refId,
         recipient: details.recipient,
         recipientAccountNumber: details.recipientAccountNumber,
@@ -350,6 +358,7 @@ const App: React.FC = () => {
             <TransactionsList 
               transactions={transactions} 
               onViewReceipt={(tx) => openInvoice(tx, 'full')} 
+              onDispute={(tx) => setDisputeTransaction(tx)}
             />
           ) : activeTab === 'track' ? (
             <TransferTracker 
@@ -398,6 +407,7 @@ const App: React.FC = () => {
                 <TransactionsList 
                   transactions={transactions.slice(0, 5)} 
                   onViewReceipt={(tx) => openInvoice(tx, 'full')} 
+                  onDispute={(tx) => setDisputeTransaction(tx)}
                 />
               </div>
 
@@ -464,6 +474,14 @@ const App: React.FC = () => {
             setShowSuccessModal(false);
             openInvoice(lastTransaction, 'full');
           }}
+        />
+      )}
+
+      {disputeTransaction && (
+        <DisputeModal
+          transaction={disputeTransaction}
+          onClose={() => setDisputeTransaction(null)}
+          onSuccess={loadData}
         />
       )}
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowUpRight, 
   ArrowDownLeft, 
@@ -10,13 +10,15 @@ import {
   Calendar, 
   DollarSign,
   ArrowRight,
-  Printer
+  Printer,
+  ShieldAlert
 } from 'lucide-react';
 import { Transaction } from '../App';
 
 interface TransactionsListProps {
   transactions: Transaction[];
   onViewReceipt: (tx: Transaction) => void;
+  onDispute: (tx: Transaction) => void;
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -32,9 +34,11 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'SAR': 'SR',
 };
 
-const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt }) => {
+const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt, onDispute }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
   
   // Advanced Filter State
   const [filterType, setFilterType] = useState<'all' | 'in' | 'out'>('all');
@@ -44,7 +48,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
   const [maxAmount, setMaxAmount] = useState('');
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(tx => {
+    const filtered = transactions.filter(tx => {
       // 1. Search Query (Name, Status, RefID)
       const matchesSearch = 
         (tx.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,7 +74,50 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
 
       return true;
     });
+    
+    // Reset to page 1 when filters change
+    return filtered;
   }, [transactions, searchQuery, filterType, dateStart, dateEnd, minAmount, maxAmount]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterType, dateStart, dateEnd, minAmount, maxAmount]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize);
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTransactions.slice(start, start + pageSize);
+  }, [filteredTransactions, currentPage]);
+
+  const handleDownloadStatement = () => {
+    // Generate CSV
+    const headers = ['Date', 'Name', 'Type', 'Amount', 'Currency', 'Status', 'Reference ID'];
+    const rows = filteredTransactions.map(tx => [
+      tx.date,
+      tx.name,
+      tx.type.toUpperCase(),
+      tx.amount,
+      tx.currency,
+      tx.status,
+      tx.referenceId || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `statement_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const resetFilters = () => {
     setFilterType('all');
@@ -112,7 +159,10 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
           >
             <Filter className="w-4 h-4" />
           </button>
-          <button className="text-[#002366] dark:text-blue-400 text-[10px] font-black hover:underline flex items-center gap-1 uppercase tracking-widest bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700 transition-colors">
+          <button 
+            onClick={handleDownloadStatement}
+            className="text-[#002366] dark:text-blue-400 text-[10px] font-black hover:underline flex items-center gap-1 uppercase tracking-widest bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700 transition-colors"
+          >
              <FileText className="w-3.5 h-3.5" /> Statement
           </button>
         </div>
@@ -226,9 +276,9 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar dark:bg-[#111] transition-colors">
-        {filteredTransactions.length > 0 ? (
+        {paginatedTransactions.length > 0 ? (
           <div className="divide-y divide-gray-50 dark:divide-gray-800">
-            {filteredTransactions.map((tx) => (
+            {paginatedTransactions.map((tx) => (
               <div 
                 key={tx.id} 
                 className="p-4 hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-all flex items-center gap-4 cursor-pointer group border-l-4 border-transparent hover:border-[#002366] dark:hover:border-blue-600"
@@ -254,6 +304,22 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
                     }`}>
                       {tx.status}
                     </span>
+                    {tx.utr && (
+                      <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                        UTR: {tx.utr}
+                      </span>
+                    )}
+                    {tx.disputeStatus && (
+                      <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
+                        tx.disputeStatus === 'resolved' 
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
+                          : tx.disputeStatus === 'rejected'
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-400'
+                          : 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400'
+                      }`}>
+                        Dispute: {tx.disputeStatus.replace('_', ' ')}
+                      </span>
+                    )}
                   </div>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tighter mt-0.5">
                     {tx.date} {tx.referenceId && `• REF: ${tx.referenceId}`} {tx.recipientAccountNumber && `• ACC: ${tx.recipientAccountNumber}`}
@@ -266,7 +332,19 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
                     </p>
                     <p className="text-[9px] text-gray-400 dark:text-gray-500 font-black uppercase tracking-[0.2em]">{tx.currency}</p>
                   </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                  <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 flex items-center gap-2">
+                    {tx.type === 'out' && !tx.disputeStatus && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDispute(tx);
+                        }}
+                        className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/30 shadow-sm"
+                        title="Initiate Dispute / Chargeback"
+                      >
+                        <ShieldAlert className="w-4 h-4" />
+                      </button>
+                    )}
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -299,9 +377,32 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
       </div>
 
       <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center shrink-0 transition-colors">
-        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-          Showing {filteredTransactions.length} of {transactions.length} entries
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+            Showing {Math.min(paginatedTransactions.length, pageSize)} of {filteredTransactions.length} entries
+          </span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1 px-2 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[10px] font-black text-gray-500 disabled:opacity-50 uppercase tracking-widest"
+              >
+                Prev
+              </button>
+              <span className="text-[10px] font-black text-[#002366] dark:text-blue-400 uppercase tracking-widest">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1 px-2 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[10px] font-black text-gray-500 disabled:opacity-50 uppercase tracking-widest"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
            <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Live Ledger Sync Active</span>

@@ -53,6 +53,7 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
 
   const getStatusSteps = (tx: Transaction) => {
     const isSwift = !tx.isSepa && !tx.isHsbcGlobal && !tx.isDirectDebit;
+    const isSepaInstant = tx.isSepa && tx.timeframe?.toLowerCase().includes('10 seconds');
     
     const steps = [
       { id: 1, label: 'Authorized', desc: 'Transaction signed and verified', icon: ShieldCheck },
@@ -68,24 +69,35 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
       steps.push({ id: 4, label: 'Cleared', desc: 'Funds credited to beneficiary', icon: CheckCircle2 });
     }
 
+    // Calculate active step based on time elapsed
     let activeStep = 1;
-    const status = tx.status;
+    const now = new Date();
+    const created = tx.createdAt ? new Date(tx.createdAt) : new Date(tx.date);
+    const diffMs = now.getTime() - created.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (isSwift) {
-      if (status === 'Processing') activeStep = 2;
-      if (status === 'Intermediary') activeStep = 3;
-      if (status === 'Settled') activeStep = 4;
-      if (status === 'Cleared') activeStep = 5;
+      if (diffDays === 0) activeStep = 2; // Processing on Day 0
+      if (diffDays === 1) activeStep = 3; // Intermediary on Day 1
+      if (diffDays === 2) activeStep = 4; // Settled on Day 2
+      if (diffDays >= 3) activeStep = 5;  // Cleared on Day 3+
+    } else if (isSepaInstant) {
+      activeStep = 4; // Always cleared for instant
     } else {
-      if (status === 'Processing') activeStep = 2;
-      if (status === 'Settled') activeStep = 3;
-      if (status === 'Cleared') activeStep = 4;
+      // SEPA Standard
+      if (diffDays === 0) activeStep = 2; // Processing on Day 0
+      if (diffDays >= 1) activeStep = 4;  // Cleared on Day 1+
     }
-    
-    if (status === 'Pending') activeStep = 1;
+
+    // Override if status is explicitly 'Cleared' or 'Pending'
+    if (tx.status === 'Cleared') activeStep = steps.length;
+    if (tx.status === 'Pending' && diffDays === 0) activeStep = 1;
 
     return { steps, activeStep };
   };
+
+  const { steps, activeStep } = trackedTx ? getStatusSteps(trackedTx) : { steps: [], activeStep: 1 };
+  const currentStatus = trackedTx ? (steps.find(s => s.id === activeStep)?.label || trackedTx.status) : '';
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -135,13 +147,16 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    trackedTx.status === 'Cleared' || trackedTx.status === 'Settled' 
+                    currentStatus === 'Cleared' || currentStatus === 'Settled' 
                       ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/30' 
                       : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30'
                   }`}>
-                    {trackedTx.status}
+                    {currentStatus}
                   </span>
                   <span className="text-[10px] font-mono font-black text-gray-400 dark:text-gray-500 uppercase">REF: {trackedTx.referenceId}</span>
+                  {trackedTx.utr && (
+                    <span className="text-[10px] font-mono font-black text-gray-400 dark:text-gray-500 uppercase ml-2">UTR: {trackedTx.utr}</span>
+                  )}
                 </div>
                 <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase">{trackedTx.recipientName || trackedTx.name}</h3>
                 <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">{trackedTx.date} • {trackedTx.paymentReason || 'Institutional Settlement'}</p>
@@ -159,13 +174,13 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
               <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 dark:bg-gray-800 -translate-y-1/2 rounded-full"></div>
               <div 
                 className="absolute top-1/2 left-0 h-1 bg-blue-600 -translate-y-1/2 rounded-full transition-all duration-1000"
-                style={{ width: `${((getStatusSteps(trackedTx).activeStep - 1) / (getStatusSteps(trackedTx).steps.length - 1)) * 100}%` }}
+                style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
               ></div>
 
               <div className="relative flex justify-between items-center">
-                {getStatusSteps(trackedTx).steps.map((step) => {
-                  const isActive = step.id <= getStatusSteps(trackedTx).activeStep;
-                  const isCurrent = step.id === getStatusSteps(trackedTx).activeStep;
+                {steps.map((step) => {
+                  const isActive = step.id <= activeStep;
+                  const isCurrent = step.id === activeStep;
                   const Icon = step.icon;
 
                   return (

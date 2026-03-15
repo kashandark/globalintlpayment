@@ -141,6 +141,12 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
                   <div className="inline-block border-2 border-black px-6 py-2">
                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Digital Auth Code</p>
                     <p className="font-mono text-xs font-black">{transaction.referenceId}</p>
+                    {transaction.utr && (
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">UTR Reference</p>
+                        <p className="font-mono text-[10px] font-black text-blue-600">{transaction.utr}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -260,6 +266,13 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
                            <div className="font-bold text-gray-400">:20: SENDER REFERENCE</div>
                           <div className="font-black">{transaction.referenceId}</div>
 
+                          {transaction.utr && (
+                            <>
+                              <div className="font-bold text-gray-400">:21: UTR REFERENCE</div>
+                              <div className="font-black text-blue-600">{transaction.utr}</div>
+                            </>
+                          )}
+
                           <div className="font-bold text-gray-400">:32A: VALUE DATE/CURR/AMNT</div>
                           <div className="font-black">{transaction.date.replace(/,/g, '')} / {transaction.currency} / {totalSettlementVal}</div>
 
@@ -332,6 +345,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
                  <div className="flex justify-between items-start mb-10">
                     <div className="space-y-2">
                        <h1 className="text-5xl font-black text-[#002366] uppercase tracking-tighter">Debit Note</h1>
+                       {transaction.utr && <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">UTR: {transaction.utr}</p>}
                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] ml-1">Asset Clearance Advice</p>
                     </div>
                     <div className="text-right space-y-1">

@@ -87,6 +87,8 @@ class ApiService {
       currency: tx.currency,
       type: tx.type,
       status: tx.status,
+      utr: tx.utr,
+      createdAt: tx.created_at,
       referenceId: tx.reference_id,
       recipient: tx.recipient_iban,
       bic: tx.bic,
@@ -155,6 +157,7 @@ class ApiService {
         payment_reason: details.paymentReason,
         is_sepa: details.isSepa,
         timeframe: details.timeframe,
+        utr: details.utr,
         fee: details.fee,
         total_settlement: details.totalSettlement
       }]);
@@ -263,9 +266,12 @@ class ApiService {
   }
 
   async createUser(email: string, password: string, profile: Partial<UserProfile>): Promise<any> {
-    // Note: In a production app, this would be done via a secure backend/edge function
-    // using the Supabase Service Role key to avoid signing out the current admin.
-    // For this demo, we use signUp which might trigger a session change.
+    /**
+     * NOTE: For "Auto-Confirm" and "No Email Checking" to work with the client-side signUp:
+     * 1. Go to Supabase Dashboard -> Authentication -> Settings -> Email Auth
+     * 2. Disable "Confirm Email"
+     * 3. This allows the admin to provision users who can log in immediately.
+     */
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -279,10 +285,10 @@ class ApiService {
     if (error) throw error;
     if (!data.user) throw new Error('User creation failed');
 
-    // Create the profile
+    // Create or update the profile
     const { error: profileError } = await supabase
       .from('profiles')
-      .insert([{
+      .upsert([{
         id: data.user.id,
         full_name: profile.full_name,
         balance: profile.balance || 0,
@@ -292,7 +298,7 @@ class ApiService {
         iban: profile.iban,
         account_number: profile.account_number,
         currency: profile.currency || 'USD'
-      }]);
+      }], { onConflict: 'id' });
 
     if (profileError) throw profileError;
     return data.user;
@@ -308,6 +314,66 @@ class ApiService {
       console.error('IBAN validation API error', error);
       return { isValid: false };
     }
+  }
+
+  async submitDispute(transactionId: string, reason: string, details: string): Promise<any> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('disputes')
+      .insert([{
+        transaction_id: transactionId,
+        user_id: user.id,
+        reason,
+        details,
+        status: 'pending'
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async fetchDisputes(): Promise<any[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('disputes')
+      .select('*, transactions(*)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async fetchAllDisputes(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('disputes')
+      .select('*, transactions(*), profiles(*)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateDisputeStatus(disputeId: string, status: string, resolutionNotes?: string): Promise<any> {
+    const { data, error } = await supabase
+      .from('disputes')
+      .update({ 
+        status, 
+        resolution_notes: resolutionNotes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', disputeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 }
 

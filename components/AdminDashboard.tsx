@@ -9,7 +9,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Shield, Landmark, CreditCard, 
   Activity, Search, Edit2, Save, X, Loader2, 
-  CheckCircle2, AlertCircle, ChevronRight, Hash
+  CheckCircle2, AlertCircle, ChevronRight, Hash,
+  ShieldCheck
 } from 'lucide-react';
 import { api, UserProfile } from '../api';
 
@@ -29,7 +30,9 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 const AdminDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'entities' | 'disputes'>('entities');
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [disputes, setDisputes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
@@ -53,8 +56,12 @@ const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    loadProfiles();
-  }, []);
+    if (activeTab === 'entities') {
+      loadProfiles();
+    } else {
+      loadDisputes();
+    }
+  }, [activeTab]);
 
   const loadProfiles = async () => {
     setIsLoading(true);
@@ -65,6 +72,33 @@ const AdminDashboard: React.FC = () => {
       console.error('Failed to load profiles', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadDisputes = async () => {
+    setIsLoading(true);
+    try {
+      const data = await api.fetchAllDisputes();
+      setDisputes(data);
+    } catch (e) {
+      console.error('Failed to load disputes', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateDispute = async (id: string, status: string) => {
+    const notes = prompt('Resolution notes (optional):');
+    setIsSaving(true);
+    try {
+      await api.updateDisputeStatus(id, status, notes || undefined);
+      setMessage({ type: 'success', text: `Dispute ${status} successfully` });
+      loadDisputes();
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message || 'Failed to update dispute' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -152,13 +186,38 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setShowRegister(!showRegister)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2"
-          >
-            {showRegister ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-            {showRegister ? 'Cancel Provisioning' : 'Provision New Entity'}
-          </button>
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl mr-4">
+            <button
+              onClick={() => setActiveTab('entities')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === 'entities' 
+                  ? 'bg-white dark:bg-[#111] text-blue-600 shadow-sm' 
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              Entities
+            </button>
+            <button
+              onClick={() => setActiveTab('disputes')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === 'disputes' 
+                  ? 'bg-white dark:bg-[#111] text-blue-600 shadow-sm' 
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              Disputes
+            </button>
+          </div>
+
+          {activeTab === 'entities' && (
+            <button 
+              onClick={() => setShowRegister(!showRegister)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2"
+            >
+              {showRegister ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+              {showRegister ? 'Cancel Provisioning' : 'Provision New Entity'}
+            </button>
+          )}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input 
@@ -186,7 +245,13 @@ const AdminDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Auth Credentials */}
               <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] border-b border-gray-100 dark:border-gray-800 pb-2">Auth Credentials</h4>
+                <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                  <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Auth Credentials</h4>
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3 h-3 text-green-500" />
+                    <span className="text-[8px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">Auto-Confirm Active</span>
+                  </div>
+                </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Email Address</label>
@@ -346,179 +411,251 @@ const AdminDashboard: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 gap-6">
-        {filteredProfiles.map(profile => (
-          <div key={profile.id} className="bg-white dark:bg-[#111] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-            <div className="p-6 md:p-8">
-              <div className="flex flex-col md:flex-row justify-between gap-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl">
-                    <Landmark className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">{profile.full_name}</h3>
-                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                        profile.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {profile.role}
-                      </span>
+        {activeTab === 'entities' ? (
+          filteredProfiles.map(profile => (
+            <div key={profile.id} className="bg-white dark:bg-[#111] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-6 md:p-8">
+                <div className="flex flex-col md:flex-row justify-between gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl">
+                      <Landmark className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <p className="text-[10px] font-mono text-gray-400 dark:text-gray-500 uppercase tracking-tighter">Entity ID: {profile.id}</p>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">{profile.full_name}</h3>
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                          profile.role === 'admin' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {profile.role}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-mono text-gray-400 dark:text-gray-500 uppercase tracking-tighter">Entity ID: {profile.id}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {editingId === profile.id ? (
+                      <>
+                        <button 
+                          onClick={() => setEditingId(null)}
+                          className="p-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2"
+                        >
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          Commit Changes
+                        </button>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => startEdit(profile)}
+                        className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 dark:hover:bg-gray-700 transition-all flex items-center gap-2"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Modify Credentials
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  {editingId === profile.id ? (
-                    <>
-                      <button 
-                        onClick={() => setEditingId(null)}
-                        className="p-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2"
-                      >
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        Commit Changes
-                      </button>
-                    </>
-                  ) : (
-                    <button 
-                      onClick={() => startEdit(profile)}
-                      className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 dark:hover:bg-gray-700 transition-all flex items-center gap-2"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                      Modify Credentials
-                    </button>
-                  )}
-                </div>
-              </div>
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Activity className="w-3 h-3" /> Available Liquidity
+                    </label>
+                    {editingId === profile.id ? (
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          value={editForm.balance}
+                          onChange={(e) => setEditForm({...editForm, balance: parseFloat(e.target.value)})}
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black text-blue-600 dark:text-blue-400 outline-none focus:border-blue-600"
+                        />
+                        <select 
+                          value={editForm.currency || 'USD'}
+                          onChange={(e) => setEditForm({...editForm, currency: e.target.value})}
+                          className="px-3 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600 appearance-none"
+                        >
+                          {SUPPORTED_CURRENCIES.map(curr => (
+                            <option key={curr} value={curr}>{curr}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <p className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
+                        {CURRENCY_SYMBOLS[profile.currency || 'USD'] || '$'}
+                        {profile.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        <span className="text-[10px] ml-1 opacity-60">{profile.currency || 'USD'}</span>
+                      </p>
+                    )}
+                  </div>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Activity className="w-3 h-3" /> Available Liquidity
-                  </label>
-                  {editingId === profile.id ? (
-                    <div className="flex gap-2">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Landmark className="w-3 h-3" /> Bank Entity
+                    </label>
+                    {editingId === profile.id ? (
                       <input 
-                        type="number"
-                        value={editForm.balance}
-                        onChange={(e) => setEditForm({...editForm, balance: parseFloat(e.target.value)})}
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-black text-blue-600 dark:text-blue-400 outline-none focus:border-blue-600"
+                        type="text"
+                        value={editForm.bank_entity || ''}
+                        onChange={(e) => setEditForm({...editForm, bank_entity: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
+                        placeholder="e.g. GIBK London Node"
                       />
-                      <select 
-                        value={editForm.currency || 'USD'}
-                        onChange={(e) => setEditForm({...editForm, currency: e.target.value})}
-                        className="px-3 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600 appearance-none"
-                      >
-                        {SUPPORTED_CURRENCIES.map(curr => (
-                          <option key={curr} value={curr}>{curr}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <p className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                      {CURRENCY_SYMBOLS[profile.currency || 'USD'] || '$'}
-                      {profile.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      <span className="text-[10px] ml-1 opacity-60">{profile.currency || 'USD'}</span>
-                    </p>
-                  )}
-                </div>
+                    ) : (
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{profile.bank_entity || 'N/A'}</p>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Landmark className="w-3 h-3" /> Bank Entity
-                  </label>
-                  {editingId === profile.id ? (
-                    <input 
-                      type="text"
-                      value={editForm.bank_entity || ''}
-                      onChange={(e) => setEditForm({...editForm, bank_entity: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
-                      placeholder="e.g. GIBK London Node"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{profile.bank_entity || 'N/A'}</p>
-                  )}
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Hash className="w-3 h-3" /> SWIFT / BIC
+                    </label>
+                    {editingId === profile.id ? (
+                      <input 
+                        type="text"
+                        value={editForm.swift_code || ''}
+                        onChange={(e) => setEditForm({...editForm, swift_code: e.target.value.toUpperCase()})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
+                        placeholder="GIBKGB2L"
+                      />
+                    ) : (
+                      <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.swift_code || 'N/A'}</p>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Hash className="w-3 h-3" /> SWIFT / BIC
-                  </label>
-                  {editingId === profile.id ? (
-                    <input 
-                      type="text"
-                      value={editForm.swift_code || ''}
-                      onChange={(e) => setEditForm({...editForm, swift_code: e.target.value.toUpperCase()})}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
-                      placeholder="GIBKGB2L"
-                    />
-                  ) : (
-                    <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.swift_code || 'N/A'}</p>
-                  )}
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Hash className="w-3 h-3" /> Account Number
+                    </label>
+                    {editingId === profile.id ? (
+                      <input 
+                        type="text"
+                        value={editForm.account_number || ''}
+                        onChange={(e) => setEditForm({...editForm, account_number: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
+                        placeholder="5230314596"
+                      />
+                    ) : (
+                      <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.account_number || 'N/A'}</p>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Hash className="w-3 h-3" /> Account Number
-                  </label>
-                  {editingId === profile.id ? (
-                    <input 
-                      type="text"
-                      value={editForm.account_number || ''}
-                      onChange={(e) => setEditForm({...editForm, account_number: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
-                      placeholder="5230314596"
-                    />
-                  ) : (
-                    <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.account_number || 'N/A'}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <CreditCard className="w-3 h-3" /> IBAN ID
-                  </label>
-                  {editingId === profile.id ? (
-                    <input 
-                      type="text"
-                      value={editForm.iban || ''}
-                      onChange={(e) => setEditForm({...editForm, iban: e.target.value.toUpperCase()})}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
-                      placeholder="GB29 GIBK 0000 ..."
-                    />
-                  ) : (
-                    <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.iban || 'N/A'}</p>
-                  )}
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <CreditCard className="w-3 h-3" /> IBAN ID
+                    </label>
+                    {editingId === profile.id ? (
+                      <input 
+                        type="text"
+                        value={editForm.iban || ''}
+                        onChange={(e) => setEditForm({...editForm, iban: e.target.value.toUpperCase()})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
+                        placeholder="GB29 GIBK 0000 ..."
+                      />
+                    ) : (
+                      <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.iban || 'N/A'}</p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="bg-gray-50 dark:bg-gray-900/50 px-8 py-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-800">
-               <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                    <span className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Active Node</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Shield className="w-3 h-3 text-gray-300 dark:text-gray-600" />
-                    <span className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">KYC Verified</span>
-                  </div>
-               </div>
-               <p className="text-[8px] font-bold text-gray-300 dark:text-gray-600 uppercase tracking-widest">Last Updated: {new Date(profile.created_at).toLocaleDateString()}</p>
-            </div>
-          </div>
-        ))}
 
-        {filteredProfiles.length === 0 && (
+              <div className="bg-gray-50 dark:bg-gray-900/50 px-8 py-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-800">
+                 <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                      <span className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Active Node</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="w-3 h-3 text-gray-300 dark:text-gray-600" />
+                      <span className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">KYC Verified</span>
+                    </div>
+                 </div>
+                 <p className="text-[8px] font-bold text-gray-300 dark:text-gray-600 uppercase tracking-widest">Last Updated: {new Date(profile.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          disputes.map(dispute => (
+            <div key={dispute.id} className="bg-white dark:bg-[#111] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow p-8">
+              <div className="flex flex-col md:flex-row justify-between gap-6">
+                <div className="space-y-4 flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                      dispute.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                      dispute.status === 'under_review' ? 'bg-blue-100 text-blue-700' :
+                      dispute.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {dispute.status.replace('_', ' ')}
+                    </span>
+                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">
+                      Reason: {dispute.reason}
+                    </h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px]">
+                    <div className="space-y-1">
+                      <p className="text-gray-400 uppercase font-black tracking-widest">Transaction ID</p>
+                      <p className="font-mono font-bold text-gray-900 dark:text-gray-200">{dispute.transaction_id}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-gray-400 uppercase font-black tracking-widest">User ID</p>
+                      <p className="font-mono font-bold text-gray-900 dark:text-gray-200">{dispute.user_id}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-gray-400 text-[10px] uppercase font-black tracking-widest">Details</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{dispute.details}</p>
+                  </div>
+
+                  {dispute.resolution_notes && (
+                    <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
+                      <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Resolution Notes</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 italic">"{dispute.resolution_notes}"</p>
+                    </div>
+                  )}
+                </div>
+
+                {dispute.status !== 'resolved' && dispute.status !== 'rejected' && (
+                  <div className="flex flex-col gap-2 min-w-[160px]">
+                    <button
+                      onClick={() => handleUpdateDispute(dispute.id, 'under_review')}
+                      className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all"
+                    >
+                      Under Review
+                    </button>
+                    <button
+                      onClick={() => handleUpdateDispute(dispute.id, 'resolved')}
+                      className="w-full px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-100 transition-all"
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      onClick={() => handleUpdateDispute(dispute.id, 'rejected')}
+                      className="w-full px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+
+        {((activeTab === 'entities' && filteredProfiles.length === 0) || (activeTab === 'disputes' && disputes.length === 0)) && (
           <div className="bg-white dark:bg-[#111] rounded-3xl border-2 border-dashed border-gray-100 dark:border-gray-800 p-20 text-center">
             <Users className="w-12 h-12 text-gray-200 dark:text-gray-800 mx-auto mb-4" />
-            <p className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">No matching entities found in global registry</p>
+            <p className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
+              No {activeTab} found in global registry
+            </p>
           </div>
         )}
       </div>
