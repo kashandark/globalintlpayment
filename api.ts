@@ -141,7 +141,7 @@ class ApiService {
 
     if (updateError) throw updateError;
 
-    const { error: txError } = await supabase
+    const { data: txData, error: txError } = await supabase
       .from('transactions')
       .insert([{
         user_id: user.id,
@@ -160,7 +160,9 @@ class ApiService {
         utr: details.utr,
         fee: details.fee,
         total_settlement: details.totalSettlement
-      }]);
+      }])
+      .select()
+      .single();
 
     if (txError) {
       // Rollback balance if transaction fails (simplified)
@@ -168,7 +170,31 @@ class ApiService {
       throw txError;
     }
 
-    return { success: true, newBalance };
+    return { 
+      success: true, 
+      newBalance, 
+      transaction: {
+        id: txData.id,
+        name: txData.name,
+        recipientName: txData.recipient_name,
+        date: new Date(txData.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        time: new Date(txData.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' GMT',
+        amount: txData.amount,
+        currency: txData.currency,
+        type: txData.type,
+        status: txData.status,
+        utr: txData.utr,
+        createdAt: txData.created_at,
+        referenceId: txData.reference_id,
+        recipient: txData.recipient_iban,
+        bic: txData.bic,
+        is_sepa: txData.is_sepa,
+        timeframe: txData.timeframe,
+        fee: txData.fee,
+        total_settlement: txData.total_settlement,
+        payment_reason: txData.payment_reason
+      }
+    };
   }
 
   async logout() {
@@ -320,6 +346,8 @@ class ApiService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    console.log(`Submitting dispute for transaction ${transactionId} by user ${user.id}`);
+
     const { data, error } = await supabase
       .from('disputes')
       .insert([{
@@ -332,7 +360,10 @@ class ApiService {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Submit dispute error:', error);
+      throw error;
+    }
     return data;
   }
 
@@ -351,29 +382,176 @@ class ApiService {
   }
 
   async fetchAllDisputes(): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('disputes')
-      .select('*, transactions(*), profiles(*)')
-      .order('created_at', { ascending: false });
+    try {
+      // Try to fetch with profiles join first
+      const { data, error } = await supabase
+        .from('disputes')
+        .select('*, transactions(*), profiles(*)')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+      if (!error) return data || [];
+      
+      console.warn('Profiles join failed in fetchAllDisputes, trying fallback...', error);
+      
+      // Fallback: fetch disputes and transactions, then fetch profiles separately
+      const { data: disputes, error: disputesError } = await supabase
+        .from('disputes')
+        .select('*, transactions(*)')
+        .order('created_at', { ascending: false });
+      
+      if (disputesError) throw disputesError;
+      if (!disputes || disputes.length === 0) return [];
+
+      const userIds = [...new Set(disputes.map(d => d.user_id))];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+      
+      if (profilesError) {
+        console.error('Failed to fetch profiles for disputes', profilesError);
+        return disputes;
+      }
+
+      return disputes.map(d => ({
+        ...d,
+        profiles: profiles.find(p => p.id === d.user_id)
+      }));
+    } catch (error) {
+      console.error('fetchAllDisputes error:', error);
+      throw error;
+    }
   }
 
   async updateDisputeStatus(disputeId: string, status: string, resolutionNotes?: string): Promise<any> {
+    const updateData: any = { 
+      status, 
+      resolution_notes: resolutionNotes,
+      updated_at: new Date().toISOString()
+    };
+
+    if (status === 'approved_pending_refund' || status === 'resolved') {
+      // Fetch the dispute to get the transaction amount
+      const { data: dispute, error: fetchError } = await supabase
+        .from('disputes')
+        .select('*, transactions(*)')
+        .eq('id', disputeId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      const amount = parseFloat(dispute.transactions.amount.replace(/,/g, ''));
+      updateData.refund_amount = amount;
+      
+      if (status === 'approved_pending_refund') {
+        updateData.scheduled_refund_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      }
+    }
+
     const { data, error } = await supabase
       .from('disputes')
-      .update({ 
-        status, 
-        resolution_notes: resolutionNotes,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', disputeId)
       .select()
       .single();
 
     if (error) throw error;
+
+    // If resolved immediately, process the refund now
+    if (status === 'resolved') {
+      await this.processRefund(disputeId);
+    }
+
     return data;
+  }
+
+  async processRefund(disputeId: string): Promise<any> {
+    const { data: dispute, error: fetchError } = await supabase
+      .from('disputes')
+      .select('*, transactions(*)')
+      .eq('id', disputeId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    if (dispute.refund_processed) return { success: true, alreadyProcessed: true };
+
+    const userId = dispute.user_id;
+    const amount = dispute.refund_amount || 0;
+
+    if (amount <= 0) {
+      console.warn('Refund amount is 0 or negative, skipping balance update');
+    } else {
+      // Atomic update: increment balance
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError) throw profileError;
+
+      const newBalance = (profile.balance || 0) + amount;
+
+      const { error: updateProfileError } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+      
+      if (updateProfileError) throw updateProfileError;
+
+      // Create a refund transaction record
+      await supabase.from('transactions').insert([{
+        user_id: userId,
+        name: 'Dispute Refund',
+        recipient_name: 'Global International Banking',
+        amount: amount.toString(),
+        currency: dispute.transactions?.currency || 'USD',
+        type: 'in',
+        status: 'Settled',
+        reference_id: `REF-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+        created_at: new Date().toISOString()
+      }]);
+    }
+
+    const { error: updateDisputeError } = await supabase
+      .from('disputes')
+      .update({ 
+        status: 'resolved', 
+        refund_processed: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', disputeId);
+    
+    if (updateDisputeError) throw updateDisputeError;
+
+    return { success: true };
+  }
+
+  async checkPendingRefunds(): Promise<number> {
+    const { data: pendingDisputes, error } = await supabase
+      .from('disputes')
+      .select('id')
+      .eq('status', 'approved_pending_refund')
+      .lte('scheduled_refund_at', new Date().toISOString())
+      .eq('refund_processed', false);
+    
+    if (error) {
+      console.error('Error checking pending refunds', error);
+      return 0;
+    }
+
+    let processedCount = 0;
+    if (pendingDisputes && pendingDisputes.length > 0) {
+      for (const dispute of pendingDisputes) {
+        try {
+          await this.processRefund(dispute.id);
+          processedCount++;
+        } catch (e) {
+          console.error(`Failed to process refund for dispute ${dispute.id}`, e);
+        }
+      }
+    }
+    return processedCount;
   }
 }
 

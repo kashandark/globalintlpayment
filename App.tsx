@@ -111,6 +111,7 @@ const App: React.FC = () => {
   const [disputeTransaction, setDisputeTransaction] = useState<Transaction | null>(null);
   const [invoiceInitialTab, setInvoiceInitialTab] = useState<'receipt' | 'swift' | 'remittance' | 'debitNote' | 'full'>('receipt');
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [authNodes, setAuthNodes] = useState<AuthNode[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transfer' | 'history' | 'track' | 'admin'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -234,6 +235,41 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isLoggedIn) return;
+    
+    const checkRefunds = async () => {
+      try {
+        const processedCount = await api.checkPendingRefunds();
+        if (processedCount > 0) {
+          // Fetch new balance to see if it changed for THIS user
+          const oldBalance = balance;
+          const newBalance = await api.fetchBalance();
+          
+          if (newBalance > oldBalance) {
+            setRefundMessage(`System Alert: A dispute refund has been automatically processed and credited to your account. Your new balance is ${newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} EUR.`);
+            setBalance(newBalance);
+            loadData(); // Refresh transactions
+          } else {
+            // If I'm an admin, I might have processed others' refunds
+            loadData();
+          }
+          
+          if (refundMessage) {
+            setTimeout(() => setRefundMessage(null), 10000);
+          }
+        }
+      } catch (err) {
+        console.error("Refund check failed:", err);
+      }
+    };
+
+    // Check immediately and then every minute
+    checkRefunds();
+    const interval = setInterval(checkRefunds, 60000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
     const interval = setInterval(() => {
       setElapsedSeconds(Math.floor((Date.now() - sessionStartTime) / 1000));
     }, 1000);
@@ -312,8 +348,10 @@ const App: React.FC = () => {
       try {
         const result = await api.submitTransfer(newTx);
         setBalance(result.newBalance);
-        setTransactions(prev => [newTx, ...prev]);
-        setLastTransaction(newTx);
+        // Use the transaction returned from the API which has the real database ID
+        const finalTx = result.transaction || newTx;
+        setTransactions(prev => [finalTx, ...prev]);
+        setLastTransaction(finalTx);
         setShowSuccessModal(true);
       } catch (err: any) {
         setErrorMessage(err.message || "An unexpected error occurred during the clearing process.");
@@ -347,6 +385,23 @@ const App: React.FC = () => {
         />
         <RateTicker />
         
+        {refundMessage && (
+          <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-4">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-2xl p-4 flex items-center gap-3 animate-pulse">
+              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <p className="text-xs font-black text-green-800 dark:text-green-200 uppercase tracking-tight">
+                {refundMessage}
+              </p>
+              <button 
+                onClick={() => setRefundMessage(null)}
+                className="ml-auto text-green-600 dark:text-green-400 hover:text-green-800"
+              >
+                <Loader2 className="w-4 h-4 rotate-45" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
           {activeTab === 'admin' && user?.role === 'admin' ? (
             <AdminDashboard />

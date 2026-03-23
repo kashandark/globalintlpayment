@@ -79,6 +79,7 @@ const AdminDashboard: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.fetchAllDisputes();
+      console.log('Loaded disputes:', data);
       setDisputes(data);
     } catch (e) {
       console.error('Failed to load disputes', e);
@@ -586,27 +587,49 @@ const AdminDashboard: React.FC = () => {
               <div className="flex flex-col md:flex-row justify-between gap-6">
                 <div className="space-y-4 flex-1">
                   <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                    <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
                       dispute.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                       dispute.status === 'under_review' ? 'bg-blue-100 text-blue-700' :
+                      dispute.status === 'approved_pending_refund' ? 'bg-purple-100 text-purple-700' :
                       dispute.status === 'resolved' ? 'bg-green-100 text-green-700' :
                       'bg-red-100 text-red-700'
                     }`}>
-                      {dispute.status.replace('_', ' ')}
+                      {dispute.status === 'resolved' ? 'Approved & Refunded' : dispute.status.replace(/_/g, ' ')}
                     </span>
-                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">
+                    {dispute.status === 'approved_pending_refund' && dispute.scheduled_refund_at && (
+                      <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-900/30">
+                        <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">
+                          Scheduled Refund: {new Date(dispute.scheduled_refund_at).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight mt-2">
                       Reason: {dispute.reason}
                     </h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px]">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[10px]">
                     <div className="space-y-1">
                       <p className="text-gray-400 uppercase font-black tracking-widest">Transaction ID</p>
                       <p className="font-mono font-bold text-gray-900 dark:text-gray-200">{dispute.transaction_id}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-gray-400 uppercase font-black tracking-widest">User ID</p>
-                      <p className="font-mono font-bold text-gray-900 dark:text-gray-200">{dispute.user_id}</p>
+                      <p className="text-gray-400 uppercase font-black tracking-widest">User</p>
+                      <p className="font-bold text-gray-900 dark:text-gray-200 truncate max-w-[150px]" title={dispute.profiles?.full_name || dispute.user_id}>
+                        {dispute.profiles?.full_name || 'Unknown User'}
+                      </p>
+                      <p className="text-[8px] font-mono text-gray-500 truncate">{dispute.user_id}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-gray-400 uppercase font-black tracking-widest">Amount</p>
+                      <p className="font-bold text-gray-900 dark:text-gray-200">
+                        {dispute.transactions?.currency} {dispute.transactions?.amount}
+                        {dispute.refund_amount > 0 && (
+                          <span className="ml-2 text-green-600 dark:text-green-400">
+                            (Refund: {dispute.refund_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })})
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
 
@@ -623,7 +646,7 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </div>
 
-                {dispute.status !== 'resolved' && dispute.status !== 'rejected' && (
+                {dispute.status !== 'resolved' && dispute.status !== 'rejected' && dispute.status !== 'approved_pending_refund' && (
                   <div className="flex flex-col gap-2 min-w-[160px]">
                     <button
                       onClick={() => handleUpdateDispute(dispute.id, 'under_review')}
@@ -632,16 +655,22 @@ const AdminDashboard: React.FC = () => {
                       Under Review
                     </button>
                     <button
+                      onClick={() => handleUpdateDispute(dispute.id, 'approved_pending_refund')}
+                      className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 transition-all"
+                    >
+                      Approve (Refund 15m)
+                    </button>
+                    <button
                       onClick={() => handleUpdateDispute(dispute.id, 'resolved')}
                       className="w-full px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-100 transition-all"
                     >
-                      Resolve
+                      Approve & Refund Now
                     </button>
                     <button
                       onClick={() => handleUpdateDispute(dispute.id, 'rejected')}
                       className="w-full px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
                     >
-                      Reject
+                      Reject Claim
                     </button>
                   </div>
                 )}

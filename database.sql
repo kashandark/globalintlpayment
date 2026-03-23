@@ -57,11 +57,14 @@ CREATE TABLE IF NOT EXISTS recipients (
 CREATE TABLE IF NOT EXISTS disputes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     transaction_id BIGINT REFERENCES transactions(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES auth.users ON DELETE CASCADE,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     reason TEXT NOT NULL,
     details TEXT,
-    status TEXT CHECK (status IN ('pending', 'under_review', 'resolved', 'rejected')) DEFAULT 'pending',
+    status TEXT CHECK (status IN ('pending', 'under_review', 'resolved', 'rejected', 'approved_pending_refund')) DEFAULT 'pending',
     resolution_notes TEXT,
+    refund_amount DECIMAL(20, 2),
+    scheduled_refund_at TIMESTAMP WITH TIME ZONE,
+    refund_processed BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

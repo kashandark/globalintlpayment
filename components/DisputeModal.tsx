@@ -16,6 +16,7 @@ const DisputeModal: React.FC<DisputeModalProps> = ({ transaction, onClose, onSuc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [submittedDisputeId, setSubmittedDisputeId] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,12 +26,14 @@ const DisputeModal: React.FC<DisputeModalProps> = ({ transaction, onClose, onSuc
     setError(null);
 
     try {
-      await api.submitDispute(transaction.id.toString(), reason, details);
+      console.log(`Submitting dispute for transaction ID: ${transaction.id}`);
+      const result = await api.submitDispute(transaction.id.toString(), reason, details);
+      setSubmittedDisputeId(result.id);
       setSuccess(true);
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 2000);
+      }, 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to submit dispute');
     } finally {
@@ -46,7 +49,7 @@ const DisputeModal: React.FC<DisputeModalProps> = ({ transaction, onClose, onSuc
             <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
           </div>
           <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">Dispute Submitted</h2>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Your request is being reviewed by our compliance team. Case ID: {Math.random().toString(36).slice(2, 10).toUpperCase()}</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Your request is being reviewed by our compliance team. Case ID: {submittedDisputeId || 'PENDING'}</p>
         </div>
       </div>
     );
