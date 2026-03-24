@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { X, CheckCircle2, Printer, Layers, Clock, ShieldCheck } from 'lucide-react';
-import { Transaction } from '../App';
+import { Transaction } from '../api';
 
 interface SuccessModalProps {
   onClose: () => void;

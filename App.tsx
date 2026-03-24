@@ -30,38 +30,7 @@ import Login from './components/Login';
 import RateTicker from './components/RateTicker';
 import AdminDashboard from './components/AdminDashboard';
 import DisputeModal from './components/DisputeModal';
-import { api, Recipient } from './api';
-
-export interface Transaction {
-  id: number | string;
-  name: string;
-  recipientName?: string;
-  date: string;
-  time?: string;
-  amount: string; 
-  currency: string;
-  type: 'in' | 'out';
-  status: string;
-  utr?: string;
-  createdAt?: string;
-  referenceId?: string;
-  recipient?: string;
-  recipientAccountNumber?: string;
-  bic?: string;
-  balanceAfter?: number; 
-  exchangeRate?: number;
-  eurAmount?: number; 
-  isSepa?: boolean;
-  isHsbcGlobal?: boolean;
-  isDirectDebit?: boolean;
-  mandateReference?: string;
-  timeframe?: string;
-  fee?: string;
-  totalSettlement?: string;
-  paymentReason?: string;
-  feeInstruction?: 'OUR' | 'SHA' | 'BEN';
-  disputeStatus?: 'pending' | 'under_review' | 'resolved' | 'rejected';
-}
+import { api, Recipient, UserAccount, Transaction } from './api';
 
 interface AuthNode {
   location: string;
@@ -100,7 +69,10 @@ const App: React.FC = () => {
     swiftCode?: string;
     iban?: string;
     accountNumber?: string;
+    currency?: string;
+    accounts?: UserAccount[];
   } | null>(null);
+  const [activeAccount, setActiveAccount] = useState<UserAccount | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -163,8 +135,20 @@ const App: React.FC = () => {
                 swiftCode: profile.swift_code,
                 iban: profile.iban,
                 accountNumber: profile.account_number,
-                currency: profile.currency
+                currency: profile.currency,
+                accounts: [] as UserAccount[]
               }; 
+              
+              // Fetch accounts
+              try {
+                const accounts = await api.fetchUserAccounts(session.user.id);
+                userData.accounts = accounts;
+                const primary = accounts.find(a => a.is_primary) || accounts[0] || null;
+                setActiveAccount(primary);
+              } catch (e) {
+                console.error("Failed to fetch accounts", e);
+              }
+
               setIsLoggedIn(true);
               setUser(userData);
               generateRandomNodes();
@@ -215,8 +199,8 @@ const App: React.FC = () => {
     setIsLoadingData(true);
     try {
       const [txs, bal] = await Promise.all([
-        api.fetchTransactions(),
-        api.fetchBalance()
+        api.fetchTransactions(activeAccount?.id),
+        api.fetchBalance(activeAccount?.id)
       ]);
       setTransactions(txs);
       setBalance(bal);
@@ -231,7 +215,7 @@ const App: React.FC = () => {
     if (isLoggedIn) {
       loadData();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, activeAccount]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -286,7 +270,9 @@ const App: React.FC = () => {
   const handleLogin = (userData: any) => {
     setIsLoggedIn(true);
     setUser(userData);
-    setBalance(userData.balance);
+    const primary = userData.accounts?.find((a: any) => a.is_primary) || userData.accounts?.[0] || null;
+    setActiveAccount(primary);
+    setBalance(primary ? primary.balance : userData.balance);
     setSessionStartTime(Date.now());
     const nodes = generateRandomNodes();
     
@@ -342,11 +328,12 @@ const App: React.FC = () => {
         fee: details.fee,
         totalSettlement: totalInSelectedCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         paymentReason: details.paymentReason,
-        feeInstruction: details.feeInstruction || 'OUR'
+        feeInstruction: details.feeInstruction || 'OUR',
+        accountId: activeAccount?.id
       };
       
       try {
-        const result = await api.submitTransfer(newTx);
+        const result = await api.submitTransfer({ ...newTx, accountId: activeAccount?.id });
         setBalance(result.newBalance);
         // Use the transaction returned from the API which has the real database ID
         const finalTx = result.transaction || newTx;
@@ -382,6 +369,8 @@ const App: React.FC = () => {
           user={user}
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          activeAccount={activeAccount}
+          onAccountSwitch={(acc) => setActiveAccount(acc)}
         />
         <RateTicker />
         
@@ -414,11 +403,13 @@ const App: React.FC = () => {
               transactions={transactions} 
               onViewReceipt={(tx) => openInvoice(tx, 'full')} 
               onDispute={(tx) => setDisputeTransaction(tx)}
+              accounts={user?.accounts || []}
             />
           ) : activeTab === 'track' ? (
             <TransferTracker 
               transactions={transactions} 
               onViewReceipt={(tx) => openInvoice(tx, 'full')} 
+              accounts={user?.accounts || []}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
@@ -426,6 +417,7 @@ const App: React.FC = () => {
                 <BalanceCard 
                   balance={balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} 
                   user={user} 
+                  activeAccount={activeAccount}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <button 
@@ -463,6 +455,7 @@ const App: React.FC = () => {
                   transactions={transactions.slice(0, 5)} 
                   onViewReceipt={(tx) => openInvoice(tx, 'full')} 
                   onDispute={(tx) => setDisputeTransaction(tx)}
+                  accounts={user?.accounts || []}
                 />
               </div>
 

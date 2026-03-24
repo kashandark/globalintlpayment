@@ -14,14 +14,15 @@ import {
   Loader2,
   FileText
 } from 'lucide-react';
-import { Transaction } from '../App';
+import { Transaction, UserAccount } from '../api';
 
 interface TransferTrackerProps {
   transactions: Transaction[];
   onViewReceipt: (tx: Transaction) => void;
+  accounts?: UserAccount[];
 }
 
-const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewReceipt }) => {
+const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewReceipt, accounts = [] }) => {
   const [searchId, setSearchId] = useState('');
   const [trackedTx, setTrackedTx] = useState<Transaction | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -159,7 +160,10 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
                   )}
                 </div>
                 <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase">{trackedTx.recipientName || trackedTx.name}</h3>
-                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">{trackedTx.date} • {trackedTx.paymentReason || 'Institutional Settlement'}</p>
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">
+                  {trackedTx.date} • {trackedTx.paymentReason || 'Institutional Settlement'}
+                  {trackedTx.accountId && accounts.find(a => a.id === trackedTx.accountId) && ` • VIA: ${accounts.find(a => a.id === trackedTx.accountId)?.account_name}`}
+                </p>
               </div>
               <div className="text-left md:text-right">
                 <p className="text-4xl font-black text-[#002366] dark:text-white tracking-tighter">

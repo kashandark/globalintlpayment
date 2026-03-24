@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, ShieldAlert, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
-import { Transaction } from '../App';
-import { api } from '../api';
+import { api, Transaction } from '../api';
 
 interface DisputeModalProps {
   transaction: Transaction;

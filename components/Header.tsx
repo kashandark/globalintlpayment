@@ -1,17 +1,29 @@
 
 import React from 'react';
-import { Bell, User, Settings, LogOut, Shield, Layout, Send, History, Moon, Sun, Activity } from 'lucide-react';
+import { api, Recipient, UserAccount } from '../api';
+import { Bell, User, Settings, LogOut, Shield, Layout, Send, History, Moon, Sun, Activity, ChevronDown, Check } from 'lucide-react';
 
 interface HeaderProps {
   onLogout: () => void;
   onTabChange: (tab: 'dashboard' | 'transfer' | 'history' | 'track' | 'admin') => void;
-  user: { name: string; role?: string } | null;
+  user: { name: string; role?: string; accounts?: UserAccount[] } | null;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
+  activeAccount: UserAccount | null;
+  onAccountSwitch: (account: UserAccount) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onLogout, onTabChange, user, isDarkMode, onToggleDarkMode }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  onLogout, 
+  onTabChange, 
+  user, 
+  isDarkMode, 
+  onToggleDarkMode,
+  activeAccount,
+  onAccountSwitch
+}) => {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = React.useState(false);
 
   return (
     <header className="bg-white dark:bg-[#0a0a0a] border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 transition-colors duration-300">
@@ -28,6 +40,53 @@ const Header: React.FC<HeaderProps> = ({ onLogout, onTabChange, user, isDarkMode
               Global Int <span className="text-[#002366] dark:text-blue-400">Banking</span>
             </span>
           </button>
+
+          {/* Account Switcher */}
+          {user && user.accounts && user.accounts.length > 0 && (
+            <div className="relative ml-4 hidden md:block">
+              <button 
+                onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+              >
+                <div className="flex flex-col items-start">
+                  <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mb-1">Active Account</span>
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{activeAccount?.account_name || 'Primary Account'}</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isAccountDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsAccountDropdownOpen(false)}></div>
+                  <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-[#111] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-20 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="px-4 py-2 border-b border-gray-50 dark:border-gray-800">
+                      <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Switch Account</p>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto py-1">
+                      {user.accounts.map((acc) => (
+                        <button
+                          key={acc.id}
+                          onClick={() => {
+                            onAccountSwitch(acc);
+                            setIsAccountDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${activeAccount?.id === acc.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                        >
+                          <div className="flex flex-col items-start">
+                            <span className={`text-xs font-bold ${activeAccount?.id === acc.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                              {acc.account_name}
+                            </span>
+                            <span className="text-[9px] font-mono text-gray-400 dark:text-gray-500">{acc.iban || 'No IBAN'}</span>
+                          </div>
+                          {activeAccount?.id === acc.id && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">

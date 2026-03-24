@@ -6,8 +6,39 @@
  * 3. Data Integrity: Balance updates use atomic operations where possible.
  * 4. Input Validation: IBAN and SWIFT codes are normalized to uppercase before storage.
  */
-import { Transaction } from './App';
 import { supabase } from './supabase';
+
+export interface Transaction {
+  id: number | string;
+  name: string;
+  recipientName?: string;
+  date: string;
+  time?: string;
+  amount: string; 
+  currency: string;
+  type: 'in' | 'out';
+  status: string;
+  utr?: string;
+  createdAt?: string;
+  referenceId?: string;
+  recipient?: string;
+  recipientAccountNumber?: string;
+  bic?: string;
+  balanceAfter?: number; 
+  exchangeRate?: number;
+  eurAmount?: number; 
+  isSepa?: boolean;
+  isHsbcGlobal?: boolean;
+  isDirectDebit?: boolean;
+  mandateReference?: string;
+  timeframe?: string;
+  fee?: string;
+  totalSettlement?: string;
+  paymentReason?: string;
+  feeInstruction?: 'OUR' | 'SHA' | 'BEN';
+  disputeStatus?: 'pending' | 'under_review' | 'resolved' | 'rejected';
+  accountId?: string;
+}
 
 export interface Recipient {
   id: string;
@@ -21,6 +52,7 @@ export interface Recipient {
 
 export interface UserProfile {
   id: string;
+  email?: string;
   full_name: string;
   balance: number;
   role: 'admin' | 'user';
@@ -29,6 +61,20 @@ export interface UserProfile {
   iban?: string;
   account_number?: string;
   currency?: string;
+  created_at: string;
+}
+
+export interface UserAccount {
+  id: string;
+  user_id: string;
+  account_name: string;
+  bank_entity?: string;
+  swift_code?: string;
+  iban?: string;
+  account_number?: string;
+  balance: number;
+  currency: string;
+  is_primary: boolean;
   created_at: string;
 }
 
@@ -49,6 +95,13 @@ class ApiService {
 
     if (profileError) throw profileError;
 
+    // Fetch accounts for this user
+    const { data: accounts } = await supabase
+      .from('user_accounts')
+      .select('*')
+      .eq('user_id', data.user.id)
+      .order('is_primary', { ascending: false });
+
     return { 
       user: { 
         name: profile.full_name, 
@@ -59,21 +112,27 @@ class ApiService {
         swiftCode: profile.swift_code,
         iban: profile.iban,
         accountNumber: profile.account_number,
-        currency: profile.currency
+        currency: profile.currency,
+        accounts: accounts || []
       }, 
       session: data.session 
     };
   }
 
-  async fetchTransactions(): Promise<Transaction[]> {
+  async fetchTransactions(accountId?: string): Promise<Transaction[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .eq('user_id', user.id);
+    
+    if (accountId) {
+      query = query.eq('account_id', accountId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
     
@@ -96,13 +155,24 @@ class ApiService {
       timeframe: tx.timeframe,
       fee: tx.fee,
       totalSettlement: tx.total_settlement,
-      paymentReason: tx.payment_reason
+      paymentReason: tx.payment_reason,
+      accountId: tx.account_id
     })) as Transaction[];
   }
 
-  async fetchBalance(): Promise<number> {
+  async fetchBalance(accountId?: string): Promise<number> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return 0;
+
+    if (accountId) {
+      const { data, error } = await supabase
+        .from('user_accounts')
+        .select('balance')
+        .eq('id', accountId)
+        .single();
+      if (error) throw error;
+      return data.balance;
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -114,37 +184,57 @@ class ApiService {
     return data.balance;
   }
 
-  async submitTransfer(details: Partial<Transaction>): Promise<any> {
+  async submitTransfer(details: Partial<Transaction> & { accountId?: string }): Promise<any> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Atomic update of balance and insert transaction
-    // In Supabase, we might use a RPC for atomic operations if needed, 
-    // but for now let's do it in sequence or assume the user has RLS/Triggers.
+    const amount = parseFloat(details.eurAmount?.toString() || '0');
     
-    const { data: profile, error: balanceError } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('id', user.id)
-      .single();
+    if (details.accountId) {
+      // Update specific account balance
+      const { data: account, error: accError } = await supabase
+        .from('user_accounts')
+        .select('balance')
+        .eq('id', details.accountId)
+        .single();
+      
+      if (accError) throw accError;
+      
+      const newBalance = account.balance - amount;
+      if (newBalance < 0) throw new Error('Insufficient Liquidity');
 
-    if (balanceError) throw balanceError;
+      const { error: updateError } = await supabase
+        .from('user_accounts')
+        .update({ balance: newBalance })
+        .eq('id', details.accountId);
+      
+      if (updateError) throw updateError;
+    } else {
+      // Update profile balance (legacy/primary)
+      const { data: profile, error: balanceError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', user.id)
+        .single();
 
-    const newBalance = profile.balance - parseFloat(details.eurAmount?.toString() || '0');
+      if (balanceError) throw balanceError;
 
-    if (newBalance < 0) throw new Error('Insufficient Liquidity');
+      const newBalance = profile.balance - amount;
+      if (newBalance < 0) throw new Error('Insufficient Liquidity');
 
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ balance: newBalance })
-      .eq('id', user.id);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', user.id);
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
+    }
 
     const { data: txData, error: txError } = await supabase
       .from('transactions')
       .insert([{
         user_id: user.id,
+        account_id: details.accountId,
         name: details.name,
         recipient_name: details.recipientName,
         amount: details.amount,
@@ -164,15 +254,10 @@ class ApiService {
       .select()
       .single();
 
-    if (txError) {
-      // Rollback balance if transaction fails (simplified)
-      await supabase.from('profiles').update({ balance: profile.balance }).eq('id', user.id);
-      throw txError;
-    }
+    if (txError) throw txError;
 
     return { 
       success: true, 
-      newBalance, 
       transaction: {
         id: txData.id,
         name: txData.name,
@@ -188,13 +273,152 @@ class ApiService {
         referenceId: txData.reference_id,
         recipient: txData.recipient_iban,
         bic: txData.bic,
-        is_sepa: txData.is_sepa,
+        isSepa: txData.is_sepa,
         timeframe: txData.timeframe,
         fee: txData.fee,
-        total_settlement: txData.total_settlement,
-        payment_reason: txData.payment_reason
+        totalSettlement: txData.total_settlement,
+        paymentReason: txData.payment_reason,
+        accountId: txData.account_id
       }
     };
+  }
+
+  async fetchUserAccounts(userId?: string): Promise<UserAccount[]> {
+    const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+    if (!targetUserId) return [];
+
+    const { data, error } = await supabase
+      .from('user_accounts')
+      .select('*')
+      .eq('user_id', targetUserId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data as UserAccount[];
+  }
+
+  async createAccount(account: Omit<UserAccount, 'id' | 'created_at'>): Promise<UserAccount> {
+    const { data, error } = await supabase
+      .from('user_accounts')
+      .insert([account])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as UserAccount;
+  }
+
+  async adminAddTransaction(userId: string, details: Partial<Transaction> & { accountId?: string }): Promise<any> {
+    const amount = parseFloat(details.amount?.replace(/,/g, '') || '0');
+    
+    if (details.accountId) {
+      // Update specific account balance
+      const { data: account, error: accError } = await supabase
+        .from('user_accounts')
+        .select('balance')
+        .eq('id', details.accountId)
+        .single();
+      
+      if (accError) throw accError;
+      
+      const newBalance = details.type === 'in' ? account.balance + amount : account.balance - amount;
+      
+      const { error: updateError } = await supabase
+        .from('user_accounts')
+        .update({ balance: newBalance })
+        .eq('id', details.accountId);
+      
+      if (updateError) throw updateError;
+    } else {
+      // Update profile balance
+      const { data: profile, error: balanceError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', userId)
+        .single();
+
+      if (balanceError) throw balanceError;
+
+      const newBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+    }
+
+    const { data: txData, error: txError } = await supabase
+      .from('transactions')
+      .insert([{
+        user_id: userId,
+        account_id: details.accountId,
+        name: details.name,
+        recipient_name: details.recipientName,
+        amount: details.amount,
+        currency: details.currency,
+        type: details.type,
+        status: details.status || 'Settled',
+        reference_id: details.referenceId || `TX-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+        recipient_iban: details.recipient,
+        bic: details.bic,
+        payment_reason: details.paymentReason,
+        is_sepa: details.isSepa,
+        timeframe: details.timeframe,
+        utr: details.utr,
+        fee: details.fee,
+        total_settlement: details.totalSettlement,
+        created_at: details.createdAt || new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (txError) throw txError;
+    return {
+      id: txData.id,
+      name: txData.name,
+      recipientName: txData.recipient_name,
+      date: new Date(txData.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      time: new Date(txData.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' GMT',
+      amount: txData.amount,
+      currency: txData.currency,
+      type: txData.type,
+      status: txData.status,
+      utr: txData.utr,
+      createdAt: txData.created_at,
+      referenceId: txData.reference_id,
+      recipient: txData.recipient_iban,
+      bic: txData.bic,
+      isSepa: txData.is_sepa,
+      timeframe: txData.timeframe,
+      fee: txData.fee,
+      totalSettlement: txData.total_settlement,
+      paymentReason: txData.payment_reason,
+      accountId: txData.account_id
+    };
+  }
+
+  async updateAccount(id: string, updates: Partial<UserAccount>): Promise<UserAccount> {
+    const { id: _id, created_at: _created_at, ...cleanUpdates } = updates as any;
+    const { data, error } = await supabase
+      .from('user_accounts')
+      .update(cleanUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as UserAccount;
+  }
+
+  async deleteAccount(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('user_accounts')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 
   async logout() {
@@ -280,6 +504,24 @@ class ApiService {
     return data;
   }
 
+  async adminUpdateUser(userId: string, updates: { email?: string, password?: string, full_name?: string }): Promise<any> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const response = await fetch('/api/admin/update-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ userId, ...updates })
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to update user');
+    return result;
+  }
+
   async getProfile(id: string): Promise<UserProfile> {
     const { data, error } = await supabase
       .from('profiles')
@@ -316,6 +558,7 @@ class ApiService {
       .from('profiles')
       .upsert([{
         id: data.user.id,
+        email: email,
         full_name: profile.full_name,
         balance: profile.balance || 0,
         role: profile.role || 'user',

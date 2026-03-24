@@ -13,12 +13,13 @@ import {
   Printer,
   ShieldAlert
 } from 'lucide-react';
-import { Transaction } from '../App';
+import { Transaction, UserAccount } from '../api';
 
 interface TransactionsListProps {
   transactions: Transaction[];
   onViewReceipt: (tx: Transaction) => void;
   onDispute: (tx: Transaction) => void;
+  accounts?: UserAccount[];
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -34,7 +35,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   'SAR': 'SR',
 };
 
-const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt, onDispute }) => {
+const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onViewReceipt, onDispute, accounts = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -323,6 +324,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ transactions, onVie
                   </div>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tighter mt-0.5">
                     {tx.date} {tx.referenceId && `• REF: ${tx.referenceId}`} {tx.recipientAccountNumber && `• ACC: ${tx.recipientAccountNumber}`}
+                    {tx.accountId && accounts.find(a => a.id === tx.accountId) && ` • VIA: ${accounts.find(a => a.id === tx.accountId)?.account_name}`}
                   </p>
                 </div>
                 <div className="text-right flex items-center gap-4">

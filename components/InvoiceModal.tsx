@@ -4,7 +4,7 @@ import {
   X, Printer, ShieldCheck, QrCode, 
   Layers, ZoomIn, ZoomOut, CheckCircle, Globe, FileDown, Zap, Clock, Shield
 } from 'lucide-react';
-import { Transaction } from '../App';
+import { Transaction, UserAccount } from '../api';
 
 interface InvoiceModalProps {
   transaction: Transaction;
@@ -16,6 +16,7 @@ interface InvoiceModalProps {
     iban?: string;
     swiftCode?: string;
     accountNumber?: string;
+    accounts?: UserAccount[];
   } | null;
 }
 
@@ -83,11 +84,14 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
   const isOut = transaction.type === 'out';
 
   // Sender Details (Dynamic from user or fallback to hardcoded if not provided)
-  const USER_ACCOUNT_NAME = user?.name || "SJ LLC";
-  const USER_ACCOUNT_BANK = user?.bankEntity || "HSBC TRINKAUS & BURKHARDT";
-  const USER_ACCOUNT_IBAN = user?.iban || "DE07 3003 0880 5230 3145 96";
-  const USER_ACCOUNT_BIC = user?.swiftCode || "TUBDDEDDXXX";
-  const USER_ACCOUNT_NO = user?.accountNumber || "5230314596";
+  // If transaction has an accountId, try to find that specific account's details
+  const transactionAccount = user?.accounts?.find(acc => acc.id === transaction.accountId);
+  
+  const USER_ACCOUNT_NAME = transactionAccount?.account_name || user?.name || "SJ LLC";
+  const USER_ACCOUNT_BANK = transactionAccount?.bank_entity || user?.bankEntity || "HSBC TRINKAUS & BURKHARDT";
+  const USER_ACCOUNT_IBAN = transactionAccount?.iban || user?.iban || "DE07 3003 0880 5230 3145 96";
+  const USER_ACCOUNT_BIC = transactionAccount?.swift_code || user?.swiftCode || "TUBDDEDDXXX";
+  const USER_ACCOUNT_NO = transactionAccount?.account_number || user?.accountNumber || "5230314596";
 
   const senderName = isOut ? USER_ACCOUNT_NAME : (transaction.recipientName || transaction.name).toUpperCase();
   const senderIban = isOut ? USER_ACCOUNT_IBAN : (transaction.recipient || "N/A");
