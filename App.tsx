@@ -270,9 +270,9 @@ const App: React.FC = () => {
   const handleLogin = (userData: any) => {
     setIsLoggedIn(true);
     setUser(userData);
-    const primary = userData.accounts?.find((a: any) => a.is_primary) || userData.accounts?.[0] || null;
-    setActiveAccount(primary);
-    setBalance(primary ? primary.balance : userData.balance);
+    // Default to Main Institutional Account (null) instead of automatically selecting a delegated account
+    setActiveAccount(null);
+    setBalance(userData.balance);
     setSessionStartTime(Date.now());
     const nodes = generateRandomNodes();
     
@@ -427,7 +427,11 @@ const App: React.FC = () => {
             <AdminDashboard />
           ) : activeTab === 'transfer' ? (
             <div className="max-w-3xl mx-auto">
-              <TransferForm onTransferComplete={handleTransferComplete} />
+              <TransferForm 
+                onTransferComplete={handleTransferComplete} 
+                currentBalance={balance}
+                activeAccount={activeAccount}
+              />
             </div>
           ) : activeTab === 'history' ? (
             <TransactionsList 

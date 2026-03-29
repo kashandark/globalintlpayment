@@ -5,10 +5,12 @@ import {
   Landmark, Activity, Terminal, ShieldAlert, CheckCircle, 
   Globe, Server, Send, Wallet, RefreshCw, TrendingUp, Zap, Clock, User, ChevronDown, Search, Plus, Save
 } from 'lucide-react';
-import { api, Recipient } from '../api';
+import { api, Recipient, UserAccount } from '../api';
 import TransferConfirmationModal from './TransferConfirmationModal';
 
 interface TransferFormProps {
+  currentBalance: number;
+  activeAccount: UserAccount | null;
   onTransferComplete: (success: boolean, details?: { 
     amount: string, 
     recipient: string, 
@@ -111,7 +113,7 @@ const PAYMENT_REASONS = [
   'Travel Expenses'
 ];
 
-const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
+const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, currentBalance, activeAccount }) => {
   const [recipientIban, setRecipientIban] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [recipientAccountNumber, setRecipientAccountNumber] = useState('');
@@ -323,9 +325,6 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete }) => {
     const feeAmount = parseFloat(getFee());
     const totalInSelectedCurrency = transferAmount + feeAmount;
     const eurEquivalentValue = (totalInSelectedCurrency / rates[currency]) * 0.92;
-
-    const session = JSON.parse(localStorage.getItem('asdipro_session') || '{}');
-    const currentBalance = session.user?.balance || 0;
 
     if (eurEquivalentValue > currentBalance) {
       onTransferComplete(false, { error: 'Insufficient Liquidity in Clearing Account' });

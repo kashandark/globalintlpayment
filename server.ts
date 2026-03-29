@@ -1,12 +1,23 @@
 
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, loadEnv } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as dotenv from 'dotenv';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env file manually if it exists
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  console.log('.env file found at:', envPath);
+  dotenv.config({ path: envPath });
+} else {
+  console.warn('.env file NOT found at:', envPath);
+}
 
 async function startServer() {
   const app = express();
@@ -14,27 +25,53 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Initialize Supabase Admin Client
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Load environment variables from .env files using Vite's loadEnv
+  const env = loadEnv(process.env.NODE_ENV || 'development', process.cwd(), '');
+  
+  // Try to get credentials from multiple sources
+  const supabaseUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || env.SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || env.SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.warn('Supabase credentials missing for server-side admin operations.');
-  }
+  let supabaseAdmin: any = null;
 
-  const supabaseAdmin = createClient(
-    supabaseUrl || '',
-    serviceRoleKey || '',
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+  const isValid = (val: any) => {
+    if (!val) return false;
+    if (typeof val !== 'string') return false;
+    if (val === 'undefined' || val === 'null' || val.trim() === '') return false;
+    return true;
+  };
+
+  console.log('Checking Supabase credentials for admin operations...');
+  
+  if (isValid(supabaseUrl) && isValid(serviceRoleKey)) {
+    try {
+      supabaseAdmin = createClient(
+        supabaseUrl!.trim(),
+        serviceRoleKey!.trim(),
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+      console.log('Supabase admin client initialized successfully.');
+    } catch (err: any) {
+      console.error('Error initializing Supabase admin client:', err.message);
     }
-  );
+  } else {
+    console.warn('Supabase credentials missing or invalid for server-side admin operations.');
+    console.warn('URL present:', !!supabaseUrl);
+    console.warn('Key present:', !!serviceRoleKey);
+    console.warn('Admin routes will be disabled.');
+  }
 
   // Middleware to verify admin role
   const verifyAdmin = async (req: any, res: any, next: any) => {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase admin client not configured.' });
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'No authorization header' });
 
