@@ -79,8 +79,11 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
   };
 
   const symbol = CURRENCY_SYMBOLS[transaction.currency] || '$';
-  const amountValue = parseFloat(transaction.amount.replace(/,/g, '') || '0.00');
+  const amountValue = parseFloat(transaction.amount?.replace(/,/g, '') || '0.00');
+  const feeValue = parseFloat(transaction.fee?.replace(/,/g, '') || '0.00');
   const formattedAmount = amountValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const totalSettlementVal = transaction.totalSettlement || (amountValue + feeValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const displayFee = transaction.fee || "0.00";
   const isOut = transaction.type === 'out';
 
   // Sender Details (Dynamic from user or fallback to hardcoded if not provided)
@@ -100,8 +103,6 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
   const beneficiaryName = isOut ? (transaction.recipientName || transaction.name).toUpperCase() : USER_ACCOUNT_NAME;
   const beneficiaryIban = isOut ? (transaction.recipient || "N/A") : USER_ACCOUNT_IBAN;
   const beneficiaryBic = isOut ? (transaction.bic || "SWIFXXXX") : USER_ACCOUNT_BIC;
-
-  const totalSettlementVal = transaction.totalSettlement || formattedAmount;
 
   const PageWrapper = ({ children }: { children?: React.ReactNode }) => (
     <div className="bg-white relative block p-0 overflow-hidden printable-page" style={{ width: '210mm', height: '297mm', pageBreakAfter: 'always', pageBreakInside: 'avoid' }}>

@@ -50,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({
               >
                 <div className="flex flex-col items-start">
                   <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mb-1">Active Account</span>
-                  <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{activeAccount?.account_name || 'Primary Account'}</span>
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{activeAccount?.account_name || 'Main Institutional Account'}</span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -63,6 +63,22 @@ const Header: React.FC<HeaderProps> = ({
                       <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Switch Account</p>
                     </div>
                     <div className="max-h-64 overflow-y-auto py-1">
+                      <button
+                        onClick={() => {
+                          onAccountSwitch(null);
+                          setIsAccountDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${activeAccount === null ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className={`text-xs font-bold ${activeAccount === null ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                            Main Institutional Account
+                          </span>
+                          <span className="text-[9px] font-mono text-gray-400 dark:text-gray-500">{user?.iban || 'Primary Profile'}</span>
+                        </div>
+                        {activeAccount === null && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                      </button>
+
                       {user.accounts.map((acc) => (
                         <button
                           key={acc.id}

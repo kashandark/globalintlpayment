@@ -190,6 +190,9 @@ class ApiService {
 
     const amount = parseFloat(details.eurAmount?.toString() || '0');
     
+    let newBalance: number;
+    let newProfileBalance: number | null = null;
+
     if (details.accountId) {
       // Update specific account balance
       const { data: account, error: accError } = await supabase
@@ -200,7 +203,7 @@ class ApiService {
       
       if (accError) throw accError;
       
-      const newBalance = account.balance - amount;
+      newBalance = details.type === 'in' ? account.balance + amount : account.balance - amount;
       if (newBalance < 0) throw new Error('Insufficient Liquidity');
 
       const { error: updateError } = await supabase
@@ -209,6 +212,21 @@ class ApiService {
         .eq('id', details.accountId);
       
       if (updateError) throw updateError;
+
+      // Also update profile balance (Total Liquidity)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profileError) {
+        newProfileBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
+        await supabase
+          .from('profiles')
+          .update({ balance: newProfileBalance })
+          .eq('id', user.id);
+      }
     } else {
       // Update profile balance (legacy/primary)
       const { data: profile, error: balanceError } = await supabase
@@ -219,7 +237,7 @@ class ApiService {
 
       if (balanceError) throw balanceError;
 
-      const newBalance = profile.balance - amount;
+      newBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
       if (newBalance < 0) throw new Error('Insufficient Liquidity');
 
       const { error: updateError } = await supabase
@@ -228,6 +246,15 @@ class ApiService {
         .eq('id', user.id);
 
       if (updateError) throw updateError;
+
+      // Also update the primary account in user_accounts to keep it in sync
+      await supabase
+        .from('user_accounts')
+        .update({ balance: newBalance })
+        .eq('user_id', user.id)
+        .eq('is_primary', true);
+
+      newProfileBalance = newBalance;
     }
 
     const { data: txData, error: txError } = await supabase
@@ -258,6 +285,8 @@ class ApiService {
 
     return { 
       success: true, 
+      newBalance,
+      newProfileBalance,
       transaction: {
         id: txData.id,
         name: txData.name,
@@ -311,6 +340,9 @@ class ApiService {
   async adminAddTransaction(userId: string, details: Partial<Transaction> & { accountId?: string }): Promise<any> {
     const amount = parseFloat(details.amount?.replace(/,/g, '') || '0');
     
+    let newBalance: number;
+    let newProfileBalance: number | null = null;
+
     if (details.accountId) {
       // Update specific account balance
       const { data: account, error: accError } = await supabase
@@ -321,7 +353,7 @@ class ApiService {
       
       if (accError) throw accError;
       
-      const newBalance = details.type === 'in' ? account.balance + amount : account.balance - amount;
+      newBalance = details.type === 'in' ? account.balance + amount : account.balance - amount;
       
       const { error: updateError } = await supabase
         .from('user_accounts')
@@ -329,6 +361,21 @@ class ApiService {
         .eq('id', details.accountId);
       
       if (updateError) throw updateError;
+
+      // Also update profile balance (Total Liquidity)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', userId)
+        .single();
+      
+      if (!profileError) {
+        newProfileBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
+        await supabase
+          .from('profiles')
+          .update({ balance: newProfileBalance })
+          .eq('id', userId);
+      }
     } else {
       // Update profile balance
       const { data: profile, error: balanceError } = await supabase
@@ -339,7 +386,7 @@ class ApiService {
 
       if (balanceError) throw balanceError;
 
-      const newBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
+      newBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
 
       const { error: updateError } = await supabase
         .from('profiles')
@@ -347,6 +394,15 @@ class ApiService {
         .eq('id', userId);
 
       if (updateError) throw updateError;
+
+      // Also update the primary account in user_accounts to keep it in sync
+      await supabase
+        .from('user_accounts')
+        .update({ balance: newBalance })
+        .eq('user_id', userId)
+        .eq('is_primary', true);
+
+      newProfileBalance = newBalance;
     }
 
     const { data: txData, error: txError } = await supabase
@@ -377,6 +433,8 @@ class ApiService {
     if (txError) throw txError;
     return {
       id: txData.id,
+      newBalance,
+      newProfileBalance,
       name: txData.name,
       recipientName: txData.recipient_name,
       date: new Date(txData.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),

@@ -85,7 +85,9 @@ const AdminDashboard: React.FC = () => {
     accountId: '',
     paymentReason: 'Administrative Adjustment',
     recipient: '',
-    bic: ''
+    bic: '',
+    fee: '0.00',
+    totalSettlement: ''
   });
 
   useEffect(() => {
@@ -152,9 +154,14 @@ const AdminDashboard: React.FC = () => {
     
     setIsSaving(true);
     try {
+      const amountNum = parseFloat(txForm.amount || '0');
+      const feeNum = parseFloat(txForm.fee || '0');
+      const totalSettlement = (amountNum + feeNum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
       await api.adminAddTransaction(selectedProfileForTransaction.id, {
         ...txForm,
-        amount: txForm.amount
+        amount: txForm.amount,
+        totalSettlement: totalSettlement
       });
       setMessage({ type: 'success', text: 'Transaction recorded successfully' });
       setShowTransactionForm(false);
@@ -1002,6 +1009,20 @@ const AdminDashboard: React.FC = () => {
                       value={txForm.amount}
                       onChange={(e) => setTxForm({...txForm, amount: e.target.value})}
                       className="w-full pl-10 pr-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-black text-blue-600 outline-none focus:border-green-600"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Settlement Fee</label>
+                  <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">{CURRENCY_SYMBOLS[txForm.currency] || '$'}</span>
+                    <input 
+                      type="text"
+                      value={txForm.fee}
+                      onChange={(e) => setTxForm({...txForm, fee: e.target.value})}
+                      className="w-full pl-10 pr-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-black text-red-600 outline-none focus:border-green-600"
                       placeholder="0.00"
                     />
                   </div>

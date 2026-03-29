@@ -215,7 +215,7 @@ const App: React.FC = () => {
     if (isLoggedIn) {
       loadData();
     }
-  }, [isLoggedIn, activeAccount]);
+  }, [isLoggedIn, activeAccount?.id]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -335,6 +335,37 @@ const App: React.FC = () => {
       try {
         const result = await api.submitTransfer({ ...newTx, accountId: activeAccount?.id });
         setBalance(result.newBalance);
+        
+        if (user) {
+          const updatedAccounts = user.accounts?.map(acc => {
+            if (activeAccount) {
+              return acc.id === activeAccount.id ? { ...acc, balance: result.newBalance } : acc;
+            } else {
+              // If no active account, update the primary one
+              return acc.is_primary ? { ...acc, balance: result.newBalance } : acc;
+            }
+          });
+          
+          const updatedUser = { 
+            ...user, 
+            accounts: updatedAccounts,
+            balance: result.newProfileBalance !== null ? result.newProfileBalance : user.balance
+          };
+          
+          setUser(updatedUser);
+          
+          if (activeAccount) {
+            setActiveAccount({ ...activeAccount, balance: result.newBalance });
+          }
+          
+          // Update local storage session
+          const session = JSON.parse(localStorage.getItem('asdipro_session') || '{}');
+          localStorage.setItem('asdipro_session', JSON.stringify({
+            ...session,
+            user: updatedUser
+          }));
+        }
+
         // Use the transaction returned from the API which has the real database ID
         const finalTx = result.transaction || newTx;
         setTransactions(prev => [finalTx, ...prev]);
