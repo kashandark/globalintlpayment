@@ -152,6 +152,9 @@ class ApiService {
       recipient: tx.recipient_iban,
       bic: tx.bic,
       isSepa: tx.is_sepa,
+      isHsbcGlobal: tx.is_hsbc_global,
+      isDirectDebit: tx.is_direct_debit,
+      mandateReference: tx.mandate_reference,
       timeframe: tx.timeframe,
       fee: tx.fee,
       totalSettlement: tx.total_settlement,
@@ -273,6 +276,9 @@ class ApiService {
         bic: details.bic,
         payment_reason: details.paymentReason,
         is_sepa: details.isSepa,
+        is_hsbc_global: details.isHsbcGlobal,
+        is_direct_debit: details.isDirectDebit,
+        mandate_reference: details.mandateReference,
         timeframe: details.timeframe,
         utr: details.utr,
         fee: details.fee,
@@ -303,6 +309,9 @@ class ApiService {
         recipient: txData.recipient_iban,
         bic: txData.bic,
         isSepa: txData.is_sepa,
+        isHsbcGlobal: txData.is_hsbc_global,
+        isDirectDebit: txData.is_direct_debit,
+        mandateReference: txData.mandate_reference,
         timeframe: txData.timeframe,
         fee: txData.fee,
         totalSettlement: txData.total_settlement,
@@ -421,6 +430,9 @@ class ApiService {
         bic: details.bic,
         payment_reason: details.paymentReason,
         is_sepa: details.isSepa,
+        is_hsbc_global: details.isHsbcGlobal,
+        is_direct_debit: details.isDirectDebit,
+        mandate_reference: details.mandateReference,
         timeframe: details.timeframe,
         utr: details.utr,
         fee: details.fee,
@@ -578,6 +590,12 @@ class ApiService {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Failed to update user');
     return result;
+  }
+
+  async fetchProfile(): Promise<UserProfile> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    return this.getProfile(user.id);
   }
 
   async getProfile(id: string): Promise<UserProfile> {

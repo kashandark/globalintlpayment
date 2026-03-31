@@ -54,7 +54,8 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
 
   const getStatusSteps = (tx: Transaction) => {
     const isSwift = !tx.isSepa && !tx.isHsbcGlobal && !tx.isDirectDebit;
-    const isSepaInstant = tx.isSepa && tx.timeframe?.toLowerCase().includes('10 seconds');
+    const isInstant = tx.isHsbcGlobal || (tx.isSepa && tx.timeframe?.toLowerCase().includes('10 seconds'));
+    const isDirectDebit = tx.isDirectDebit;
     
     const steps = [
       { id: 1, label: 'Authorized', desc: 'Transaction signed and verified', icon: ShieldCheck },
@@ -77,13 +78,18 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
     const diffMs = now.getTime() - created.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (isSwift) {
+    if (isInstant) {
+      activeStep = steps.length; // Always cleared for instant
+    } else if (isSwift) {
       if (diffDays === 0) activeStep = 2; // Processing on Day 0
-      if (diffDays === 1) activeStep = 3; // Intermediary on Day 1
-      if (diffDays === 2) activeStep = 4; // Settled on Day 2
-      if (diffDays >= 3) activeStep = 5;  // Cleared on Day 3+
-    } else if (isSepaInstant) {
-      activeStep = 4; // Always cleared for instant
+      if (diffDays === 1) activeStep = 2; // Still processing on Day 1
+      if (diffDays === 2) activeStep = 3; // Intermediary on Day 2
+      if (diffDays === 3) activeStep = 4; // Settled on Day 3
+      if (diffDays >= 4) activeStep = 5;  // Cleared on Day 4+
+    } else if (isDirectDebit) {
+      if (diffDays === 0) activeStep = 2; // Processing on Day 0
+      if (diffDays === 1) activeStep = 3; // Settled on Day 1
+      if (diffDays >= 2) activeStep = 4;  // Cleared on Day 2+
     } else {
       // SEPA Standard
       if (diffDays === 0) activeStep = 2; // Processing on Day 0

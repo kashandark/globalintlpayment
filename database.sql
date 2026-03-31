@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     bic TEXT,
     payment_reason TEXT,
     is_sepa BOOLEAN DEFAULT false,
+    is_hsbc_global BOOLEAN DEFAULT false,
+    is_direct_debit BOOLEAN DEFAULT false,
     timeframe TEXT,
     utr TEXT,
     fee TEXT,

@@ -6,7 +6,7 @@ import { Bell, User, Settings, LogOut, Shield, Layout, Send, History, Moon, Sun,
 interface HeaderProps {
   onLogout: () => void;
   onTabChange: (tab: 'dashboard' | 'transfer' | 'history' | 'track' | 'admin') => void;
-  user: { name: string; role?: string; accounts?: UserAccount[] } | null;
+  user: { name: string; role?: string; accounts?: UserAccount[]; bankEntity?: string; iban?: string } | null;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   activeAccount: UserAccount | null;
@@ -50,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({
               >
                 <div className="flex flex-col items-start">
                   <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mb-1">Active Account</span>
-                  <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{activeAccount?.account_name || 'Main Institutional Account'}</span>
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{activeAccount?.account_name || user?.bankEntity || 'Main Institutional Account'}</span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -72,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({
                       >
                         <div className="flex flex-col items-start">
                           <span className={`text-xs font-bold ${activeAccount === null ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                            Main Institutional Account
+                            {user?.bankEntity || 'Main Institutional Account'}
                           </span>
                           <span className="text-[9px] font-mono text-gray-400 dark:text-gray-500">{user?.iban || 'Primary Profile'}</span>
                         </div>

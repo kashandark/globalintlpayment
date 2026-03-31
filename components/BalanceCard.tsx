@@ -41,7 +41,7 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, user, activeAccount 
   const currentSwiftCode = activeAccount?.swift_code || user?.swiftCode || 'PENDING';
   const currentAccountNumber = activeAccount?.account_number || user?.accountNumber || 'PENDING';
   const currentIban = activeAccount?.iban || user?.iban || 'PENDING PROVISIONING';
-  const currentAccountName = activeAccount?.account_name || 'Main Institutional Account';
+  const currentAccountName = activeAccount?.account_name || user?.bankEntity || 'Main Institutional Account';
 
   return (
     <div className="relative overflow-hidden bg-[#002366] dark:bg-[#001a4d] rounded-3xl p-8 text-white shadow-[0_20px_50px_-12px_rgba(0,35,102,0.4)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.6)] transition-colors duration-300">

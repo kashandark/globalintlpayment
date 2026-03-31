@@ -90,7 +90,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
   // If transaction has an accountId, try to find that specific account's details
   const transactionAccount = user?.accounts?.find(acc => acc.id === transaction.accountId);
   
-  const USER_ACCOUNT_NAME = transactionAccount?.account_name || user?.name || "SJ LLC";
+  const USER_ACCOUNT_NAME = transactionAccount?.account_name || user?.bankEntity || user?.name || "SJ LLC";
   const USER_ACCOUNT_BANK = transactionAccount?.bank_entity || user?.bankEntity || "HSBC TRINKAUS & BURKHARDT";
   const USER_ACCOUNT_IBAN = transactionAccount?.iban || user?.iban || "DE07 3003 0880 5230 3145 96";
   const USER_ACCOUNT_BIC = transactionAccount?.swift_code || user?.swiftCode || "TUBDDEDDXXX";

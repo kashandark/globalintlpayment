@@ -30,7 +30,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'entities' | 'disputes'>('entities');
+  const [activeTab, setActiveTab] = useState<'entities' | 'disputes' | 'settings'>('entities');
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [disputes, setDisputes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +39,10 @@ const AdminDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  
+  // Settings State
+  const [institutionalName, setInstitutionalName] = useState('');
+  const [isSettingsLoading, setIsSettingsLoading] = useState(false);
   
   // Registration State
   const [showRegister, setShowRegister] = useState(false);
@@ -93,10 +97,39 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'entities') {
       loadProfiles();
-    } else {
+    } else if (activeTab === 'disputes') {
       loadDisputes();
+    } else if (activeTab === 'settings') {
+      loadSettings();
     }
   }, [activeTab]);
+
+  const loadSettings = async () => {
+    setIsSettingsLoading(true);
+    try {
+      const profile = await api.fetchProfile();
+      setInstitutionalName(profile.bank_entity || '');
+    } catch (e) {
+      console.error('Failed to load settings', e);
+    } finally {
+      setIsSettingsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const profile = await api.fetchProfile();
+      await api.updateProfile(profile.id, { bank_entity: institutionalName });
+      setMessage({ type: 'success', text: 'Institutional branding updated. Please refresh to see changes.' });
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message || 'Failed to update settings' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
 
   const loadProfiles = async () => {
     setIsLoading(true);
@@ -377,6 +410,16 @@ const AdminDashboard: React.FC = () => {
             >
               Disputes
             </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === 'settings' 
+                  ? 'bg-white dark:bg-[#111] text-blue-600 shadow-sm' 
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              Settings
+            </button>
           </div>
 
           {activeTab === 'entities' && (
@@ -581,7 +624,44 @@ const AdminDashboard: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 gap-6">
-        {activeTab === 'entities' ? (
+        {activeTab === 'settings' ? (
+          <div className="bg-white dark:bg-[#111] rounded-[2.5rem] border border-gray-100 dark:border-gray-800 p-8 md:p-12 shadow-sm">
+            <div className="max-w-2xl">
+              <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">Institutional Branding</h3>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mb-8">Configure how your bank entity appears across the platform, invoices, and receipts.</p>
+              
+              <form onSubmit={handleSaveSettings} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest px-1">Bank Entity Name (e.g. FF LLC)</label>
+                  <div className="relative">
+                    <Landmark className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <input 
+                      type="text"
+                      value={institutionalName}
+                      onChange={(e) => setInstitutionalName(e.target.value)}
+                      placeholder="Enter Bank Entity Name..."
+                      className="w-full pl-14 pr-6 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-sm font-black text-gray-900 dark:text-white outline-none focus:border-blue-600 transition-all"
+                    />
+                  </div>
+                  <p className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tight px-1 mt-2">
+                    This name will replace "Main Institutional Account" in the header, balance cards, and will appear as the sender on all generated documents.
+                  </p>
+                </div>
+
+                <div className="pt-4">
+                  <button 
+                    type="submit"
+                    disabled={isSaving || isSettingsLoading}
+                    className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-3 disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    Save Institutional Branding
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : activeTab === 'entities' ? (
           filteredProfiles.map(profile => (
             <div key={profile.id} className="bg-white dark:bg-[#111] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
               <div className="p-6 md:p-8">
