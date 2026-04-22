@@ -30,9 +30,10 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'entities' | 'disputes' | 'settings'>('entities');
+  const [activeTab, setActiveTab] = useState<'entities' | 'disputes' | 'raast' | 'settings'>('entities');
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [disputes, setDisputes] = useState<any[]>([]);
+  const [raastTransactions, setRaastTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<UserProfile> & { password?: string }>({});
@@ -56,7 +57,8 @@ const AdminDashboard: React.FC = () => {
     bank_entity: '',
     swift_code: '',
     iban: '',
-    account_number: ''
+    account_number: '',
+    raast_id: ''
   });
 
   // Account Management State
@@ -71,6 +73,7 @@ const AdminDashboard: React.FC = () => {
     swift_code: '',
     iban: '',
     account_number: '',
+    raast_id: '',
     balance: 0,
     currency: 'USD',
     is_primary: false
@@ -99,10 +102,25 @@ const AdminDashboard: React.FC = () => {
       loadProfiles();
     } else if (activeTab === 'disputes') {
       loadDisputes();
+    } else if (activeTab === 'raast') {
+      loadRaastTransactions();
     } else if (activeTab === 'settings') {
       loadSettings();
     }
   }, [activeTab]);
+
+  const loadRaastTransactions = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await api.fetchRaastTransactions();
+      if (error) throw error;
+      setRaastTransactions(data);
+    } catch (e) {
+      console.error('Failed to load Raast transactions', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadSettings = async () => {
     setIsSettingsLoading(true);
@@ -305,6 +323,7 @@ const AdminDashboard: React.FC = () => {
         swift_code: regForm.swift_code,
         iban: regForm.iban,
         account_number: regForm.account_number,
+        raast_id: regForm.raast_id,
         currency: regForm.currency
       });
       setMessage({ type: 'success', text: 'New entity provisioned successfully' });
@@ -319,7 +338,8 @@ const AdminDashboard: React.FC = () => {
         bank_entity: '',
         swift_code: '',
         iban: '',
-        account_number: ''
+        account_number: '',
+        raast_id: ''
       });
       loadProfiles();
     } catch (e: any) {
@@ -409,6 +429,16 @@ const AdminDashboard: React.FC = () => {
               }`}
             >
               Disputes
+            </button>
+            <button
+              onClick={() => setActiveTab('raast')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === 'raast' 
+                  ? 'bg-white dark:bg-[#111] text-blue-600 shadow-sm' 
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              Raast Monitor
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -576,6 +606,26 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => setRegForm({...regForm, account_number: e.target.value})}
                         className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-mono font-bold outline-none focus:border-blue-600 dark:text-white transition-all"
                         placeholder="5230314596"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">RAAST ID (Mobile)</label>
+                      <input 
+                        type="text"
+                        value={regForm.raast_id}
+                        onChange={(e) => setRegForm({...regForm, raast_id: e.target.value})}
+                        className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-mono font-bold outline-none focus:border-blue-600 dark:text-white transition-all"
+                        placeholder="+923001234567"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">RAAST ID (Mobile)</label>
+                      <input 
+                        type="text"
+                        value={accountForm.raast_id || ''}
+                        onChange={(e) => setAccountForm({...accountForm, raast_id: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-xs font-mono font-bold outline-none focus:border-blue-600 dark:text-white transition-all"
+                        placeholder="+923001234567"
                       />
                     </div>
                   </div>
@@ -820,6 +870,23 @@ const AdminDashboard: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Hash className="w-3 h-3" /> RAAST ID
+                    </label>
+                    {editingId === profile.id ? (
+                      <input 
+                        type="text"
+                        value={editForm.raast_id || ''}
+                        onChange={(e) => setEditForm({...editForm, raast_id: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-sm font-mono font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
+                        placeholder="+923001234567"
+                      />
+                    ) : (
+                      <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-200">{profile.raast_id || 'N/A'}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
                       <Hash className="w-3 h-3" /> SWIFT / BIC
                     </label>
                     {editingId === profile.id ? (
@@ -886,7 +953,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           ))
-        ) : (
+        ) : activeTab === 'disputes' ? (
           disputes.map(dispute => (
             <div key={dispute.id} className="bg-white dark:bg-[#111] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow p-8">
               <div className="flex flex-col md:flex-row justify-between gap-6">
@@ -899,16 +966,9 @@ const AdminDashboard: React.FC = () => {
                       dispute.status === 'resolved' ? 'bg-green-100 text-green-700' :
                       'bg-red-100 text-red-700'
                     }`}>
-                      {dispute.status === 'resolved' ? 'Approved & Refunded' : dispute.status.replace(/_/g, ' ')}
+                      {dispute.status === 'resolved' ? 'Approved & Refunded' : dispute.status.replace(/_/, ' ')}
                     </span>
-                    {dispute.status === 'approved_pending_refund' && dispute.scheduled_refund_at && (
-                      <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-900/30">
-                        <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                          Scheduled Refund: {new Date(dispute.scheduled_refund_at).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight mt-2">
+                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">
                       Reason: {dispute.reason}
                     </h3>
                   </div>
@@ -920,58 +980,35 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-1">
                       <p className="text-gray-400 uppercase font-black tracking-widest">User</p>
-                      <p className="font-bold text-gray-900 dark:text-gray-200 truncate max-w-[150px]" title={dispute.profiles?.full_name || dispute.user_id}>
-                        {dispute.profiles?.full_name || 'Unknown User'}
-                      </p>
-                      <p className="text-[8px] font-mono text-gray-500 truncate">{dispute.user_id}</p>
+                      <p className="font-bold text-gray-900 dark:text-gray-200">{dispute.profiles?.full_name || 'Unknown User'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-gray-400 uppercase font-black tracking-widest">Amount</p>
-                      <p className="font-bold text-gray-900 dark:text-gray-200">
-                        {dispute.transactions?.currency} {dispute.transactions?.amount}
-                        {dispute.refund_amount > 0 && (
-                          <span className="ml-2 text-green-600 dark:text-green-400">
-                            (Refund: {dispute.refund_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })})
-                          </span>
-                        )}
-                      </p>
+                      <p className="font-bold text-gray-900 dark:text-gray-200">{dispute.transactions?.currency} {dispute.transactions?.amount}</p>
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <p className="text-gray-400 text-[10px] uppercase font-black tracking-widest">Details</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{dispute.details}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{dispute.details}</p>
                   </div>
-
-                  {dispute.resolution_notes && (
-                    <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
-                      <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Resolution Notes</p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 italic">"{dispute.resolution_notes}"</p>
-                    </div>
-                  )}
                 </div>
 
-                {dispute.status !== 'resolved' && dispute.status !== 'rejected' && dispute.status !== 'approved_pending_refund' && (
+                {dispute.status !== 'resolved' && dispute.status !== 'rejected' && (
                   <div className="flex flex-col gap-2 min-w-[160px]">
-                    <button
+                    <button 
                       onClick={() => handleUpdateDispute(dispute.id, 'under_review')}
                       className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all"
                     >
                       Under Review
                     </button>
-                    <button
-                      onClick={() => handleUpdateDispute(dispute.id, 'approved_pending_refund')}
-                      className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 transition-all"
-                    >
-                      Approve (Refund 15m)
-                    </button>
-                    <button
+                    <button 
                       onClick={() => handleUpdateDispute(dispute.id, 'resolved')}
                       className="w-full px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-100 transition-all"
                     >
-                      Approve & Refund Now
+                      Approve & Refund
                     </button>
-                    <button
+                    <button 
                       onClick={() => handleUpdateDispute(dispute.id, 'rejected')}
                       className="w-full px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
                     >
@@ -982,6 +1019,98 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           ))
+        ) : activeTab === 'raast' ? (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-[#111] rounded-[2.5rem] p-8 shadow-xl border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Raast Real-Time Monitor</h3>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Live ISO-20022 Node Activity (Pakistan)</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">Gateway Online</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-50 dark:border-gray-800">
+                      <th className="text-left py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Reference / UTR</th>
+                      <th className="text-left py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Sender / Recipient</th>
+                      <th className="text-left py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                      <th className="text-left py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Gateway</th>
+                      <th className="text-left py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    {raastTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center">
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No Raast activity detected on this node</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      raastTransactions.map(tx => (
+                        <tr key={tx.id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="py-4">
+                            <p className="text-[10px] font-mono font-black text-gray-900 dark:text-white">{tx.referenceId}</p>
+                            <p className="text-[8px] font-mono text-gray-400 uppercase">{tx.utr || 'PENDING'}</p>
+                            {tx.raastId && <p className="text-[8px] font-black text-green-600 dark:text-green-400 uppercase">ID: {tx.raastId}</p>}
+                          </td>
+                          <td className="py-4">
+                            <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase">{tx.name}</p>
+                            <div className="flex items-center gap-1 text-[8px] text-gray-400 uppercase font-bold">
+                              <ChevronRight className="w-2 h-2" /> {tx.recipientName}
+                            </div>
+                          </td>
+                          <td className="py-4">
+                            <p className="text-[10px] font-black text-[#002366] dark:text-blue-400 uppercase">
+                              {tx.currency} {parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </p>
+                          </td>
+                          <td className="py-4">
+                            <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase">{tx.gatewayBank || 'RAAST CENTRAL'}</p>
+                            <p className="text-[7px] font-mono text-gray-400 truncate max-w-[100px]">{tx.gatewayUrl}</p>
+                          </td>
+                          <td className="py-4">
+                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/30">
+                              {tx.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-[#111] rounded-[2.5rem] p-8 shadow-xl border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-8">Institutional Settings</h3>
+            <form onSubmit={handleSaveSettings} className="space-y-6 max-w-2xl">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Institutional Branding Name</label>
+                <input 
+                  type="text"
+                  value={institutionalName}
+                  onChange={(e) => setInstitutionalName(e.target.value)}
+                  className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-600"
+                  placeholder="e.g. Global International Banking"
+                />
+              </div>
+              <button 
+                type="submit"
+                disabled={isSaving}
+                className="bg-[#002366] dark:bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900/20 hover:bg-blue-900 transition-all flex items-center gap-3"
+              >
+                {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                Save Configuration
+              </button>
+            </form>
+          </div>
         )}
 
         {((activeTab === 'entities' && filteredProfiles.length === 0) || (activeTab === 'disputes' && disputes.length === 0)) && (
@@ -1216,6 +1345,16 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => setAccountForm({...accountForm, account_number: e.target.value})}
                         className="w-full px-5 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono font-bold outline-none focus:border-blue-600 dark:text-white"
                         placeholder="0180501002"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">RAAST ID (Mobile)</label>
+                      <input 
+                        type="text"
+                        value={accountForm.raast_id || ''}
+                        onChange={(e) => setAccountForm({...accountForm, raast_id: e.target.value})}
+                        className="w-full px-5 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-mono font-bold outline-none focus:border-blue-600 dark:text-white"
+                        placeholder="+923001234567"
                       />
                     </div>
                     <div className="space-y-2 md:col-span-2">

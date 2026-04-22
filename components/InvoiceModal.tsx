@@ -243,17 +243,17 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ transaction, onClose, initi
                     <div className="flex items-center gap-2">
                        <Shield className="w-5 h-5 text-[#002366]" />
                        <span className="font-black text-lg uppercase tracking-tight">
-                         {transaction.isDirectDebit ? 'SEPA Direct Debit Advice (SDD)' : transaction.isHsbcGlobal ? 'HSBC Global Transfer Advice' : transaction.isSepa ? 'SEPA Credit Transfer Advice (SCT)' : 'SWIFT MT103 Transmission Advice'}
+                         {transaction.isRaast ? 'Raast Instant Transfer Advice' : transaction.isDirectDebit ? 'SEPA Direct Debit Advice (SDD)' : transaction.isHsbcGlobal ? 'HSBC Global Transfer Advice' : transaction.isSepa ? 'SEPA Credit Transfer Advice (SCT)' : 'SWIFT MT103 Transmission Advice'}
                        </span>
                     </div>
                     <span className="font-black text-gray-400">PAGE 02 OF 03</span>
                  </div>
-
+ 
                  <div className="space-y-4">
                     <div className="bg-gray-100 p-4 border border-gray-200">
                        <p className="font-black mb-2 flex justify-between">
-                         <span>APPLICATION ID: {transaction.isHsbcGlobal ? 'HSBC_GLOBAL' : transaction.isSepa ? 'SCT_INST' : 'SWIFT_FIN'}</span>
-                         <span>NODE: {isOut ? (transaction.isHsbcGlobal ? 'HSBC-HK-01' : transaction.isSepa ? 'EBA-CLEAR-EU' : 'HSBC-TR-GER') : (['GIBK-LN-09', 'GIBK-DX-05', 'GIBK-SH-10', 'GIBK-RY-15', 'GIBK-KA-16', 'GIBK-DB-14'][Math.floor(Math.random() * 6)])}</span>
+                         <span>APPLICATION ID: {transaction.isRaast ? 'RAAST_INST' : transaction.isHsbcGlobal ? 'HSBC_GLOBAL' : transaction.isSepa ? 'SCT_INST' : 'SWIFT_FIN'}</span>
+                         <span>NODE: {isOut ? (transaction.isRaast ? 'SBP-RAAST-PK' : transaction.isHsbcGlobal ? 'HSBC-HK-01' : transaction.isSepa ? 'EBA-CLEAR-EU' : 'HSBC-TR-GER') : (['GIBK-LN-09', 'GIBK-DX-05', 'GIBK-SH-10', 'GIBK-RY-15', 'GIBK-KA-16', 'GIBK-DB-14'][Math.floor(Math.random() * 6)])}</span>
                        </p>
                        <p className="text-[10px] text-gray-500">SESSION: {Math.random().toString().slice(2, 10)} | AUTH_LVL: INSTITUTIONAL_TIER_1</p>
                     </div>

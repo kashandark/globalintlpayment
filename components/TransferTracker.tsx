@@ -53,10 +53,21 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
   };
 
   const getStatusSteps = (tx: Transaction) => {
-    const isSwift = !tx.isSepa && !tx.isHsbcGlobal && !tx.isDirectDebit;
-    const isInstant = tx.isHsbcGlobal || (tx.isSepa && tx.timeframe?.toLowerCase().includes('10 seconds'));
+    const isSwift = !tx.isSepa && !tx.isHsbcGlobal && !tx.isDirectDebit && !tx.isRaast;
+    const isInstant = tx.isHsbcGlobal || tx.isRaast || (tx.isSepa && tx.timeframe?.toLowerCase().includes('10 seconds'));
     const isDirectDebit = tx.isDirectDebit;
     
+    if (tx.isRaast) {
+      const raastSteps = [
+        { id: 1, label: 'Authorized', desc: 'Transaction signed and verified', icon: ShieldCheck },
+        { id: 2, label: 'Gateway Handshake', desc: `Connected to ${tx.gatewayBank || 'RAAST HUB'}`, icon: Activity },
+        { id: 3, label: 'Core Validation', desc: 'Beneficiary account verified', icon: ShieldCheck },
+        { id: 4, label: 'Settled', desc: 'Funds reached destination hub', icon: Globe },
+        { id: 5, label: 'Cleared', desc: 'Funds credited to beneficiary', icon: CheckCircle2 },
+      ];
+      return { steps: raastSteps, activeStep: tx.status === 'Settled' || tx.status === 'Cleared' ? 5 : 2 };
+    }
+
     const steps = [
       { id: 1, label: 'Authorized', desc: 'Transaction signed and verified', icon: ShieldCheck },
       { id: 2, label: 'Processing', desc: 'Clearing through global nodes', icon: Activity },
@@ -163,6 +174,9 @@ const TransferTracker: React.FC<TransferTrackerProps> = ({ transactions, onViewR
                   <span className="text-[10px] font-mono font-black text-gray-400 dark:text-gray-500 uppercase">REF: {trackedTx.referenceId}</span>
                   {trackedTx.utr && (
                     <span className="text-[10px] font-mono font-black text-gray-400 dark:text-gray-500 uppercase ml-2">UTR: {trackedTx.utr}</span>
+                  )}
+                  {trackedTx.raastId && (
+                    <span className="text-[10px] font-mono font-black text-green-600 dark:text-green-400 uppercase ml-2">RAAST ID: {trackedTx.raastId}</span>
                   )}
                 </div>
                 <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase">{trackedTx.recipientName || trackedTx.name}</h3>

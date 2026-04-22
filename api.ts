@@ -29,7 +29,9 @@ export interface Transaction {
   eurAmount?: number; 
   isSepa?: boolean;
   isHsbcGlobal?: boolean;
+  isRaast?: boolean;
   isDirectDebit?: boolean;
+  raastId?: string;
   mandateReference?: string;
   timeframe?: string;
   fee?: string;
@@ -38,6 +40,8 @@ export interface Transaction {
   feeInstruction?: 'OUR' | 'SHA' | 'BEN';
   disputeStatus?: 'pending' | 'under_review' | 'resolved' | 'rejected';
   accountId?: string;
+  gatewayBank?: string;
+  gatewayUrl?: string;
 }
 
 export interface Recipient {
@@ -60,6 +64,7 @@ export interface UserProfile {
   swift_code?: string;
   iban?: string;
   account_number?: string;
+  raast_id?: string;
   currency?: string;
   created_at: string;
 }
@@ -72,6 +77,7 @@ export interface UserAccount {
   swift_code?: string;
   iban?: string;
   account_number?: string;
+  raast_id?: string;
   balance: number;
   currency: string;
   is_primary: boolean;
@@ -152,9 +158,13 @@ class ApiService {
       recipient: tx.recipient_iban,
       bic: tx.bic,
       isSepa: tx.is_sepa,
-      isHsbcGlobal: tx.is_hsbc_global,
+        isHsbcGlobal: tx.is_hsbc_global,
+        isRaast: tx.is_raast,
+        raastId: tx.raast_id,
       isDirectDebit: tx.is_direct_debit,
       mandateReference: tx.mandate_reference,
+      gatewayBank: tx.gateway_bank,
+      gatewayUrl: tx.gateway_url,
       timeframe: tx.timeframe,
       fee: tx.fee,
       totalSettlement: tx.total_settlement,
@@ -188,111 +198,25 @@ class ApiService {
   }
 
   async submitTransfer(details: Partial<Transaction> & { accountId?: string }): Promise<any> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
 
-    const amount = parseFloat(details.eurAmount?.toString() || '0');
-    
-    let newBalance: number;
-    let newProfileBalance: number | null = null;
+    const response = await fetch('/api/transfer/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ details })
+    });
 
-    if (details.accountId) {
-      // Update specific account balance
-      const { data: account, error: accError } = await supabase
-        .from('user_accounts')
-        .select('balance')
-        .eq('id', details.accountId)
-        .single();
-      
-      if (accError) throw accError;
-      
-      newBalance = details.type === 'in' ? account.balance + amount : account.balance - amount;
-      if (newBalance < 0) throw new Error('Insufficient Liquidity');
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Transfer failed');
 
-      const { error: updateError } = await supabase
-        .from('user_accounts')
-        .update({ balance: newBalance })
-        .eq('id', details.accountId);
-      
-      if (updateError) throw updateError;
-
-      // Also update profile balance (Total Liquidity)
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', user.id)
-        .single();
-      
-      if (!profileError) {
-        newProfileBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
-        await supabase
-          .from('profiles')
-          .update({ balance: newProfileBalance })
-          .eq('id', user.id);
-      }
-    } else {
-      // Update profile balance (legacy/primary)
-      const { data: profile, error: balanceError } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', user.id)
-        .single();
-
-      if (balanceError) throw balanceError;
-
-      newBalance = details.type === 'in' ? profile.balance + amount : profile.balance - amount;
-      if (newBalance < 0) throw new Error('Insufficient Liquidity');
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ balance: newBalance })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      // Also update the primary account in user_accounts to keep it in sync
-      await supabase
-        .from('user_accounts')
-        .update({ balance: newBalance })
-        .eq('user_id', user.id)
-        .eq('is_primary', true);
-
-      newProfileBalance = newBalance;
-    }
-
-    const { data: txData, error: txError } = await supabase
-      .from('transactions')
-      .insert([{
-        user_id: user.id,
-        account_id: details.accountId,
-        name: details.name,
-        recipient_name: details.recipientName,
-        amount: details.amount,
-        currency: details.currency,
-        type: details.type,
-        status: details.status,
-        reference_id: details.referenceId,
-        recipient_iban: details.recipient,
-        bic: details.bic,
-        payment_reason: details.paymentReason,
-        is_sepa: details.isSepa,
-        is_hsbc_global: details.isHsbcGlobal,
-        is_direct_debit: details.isDirectDebit,
-        mandate_reference: details.mandateReference,
-        timeframe: details.timeframe,
-        utr: details.utr,
-        fee: details.fee,
-        total_settlement: details.totalSettlement
-      }])
-      .select()
-      .single();
-
-    if (txError) throw txError;
-
+    const txData = result.transaction;
     return { 
       success: true, 
-      newBalance,
-      newProfileBalance,
+      newBalance: result.newBalance,
       transaction: {
         id: txData.id,
         name: txData.name,
@@ -310,8 +234,12 @@ class ApiService {
         bic: txData.bic,
         isSepa: txData.is_sepa,
         isHsbcGlobal: txData.is_hsbc_global,
+        isRaast: txData.is_raast,
+        raastId: txData.raast_id,
         isDirectDebit: txData.is_direct_debit,
         mandateReference: txData.mandate_reference,
+        gatewayBank: txData.gateway_bank,
+        gatewayUrl: txData.gateway_url,
         timeframe: txData.timeframe,
         fee: txData.fee,
         totalSettlement: txData.total_settlement,
@@ -432,7 +360,10 @@ class ApiService {
         is_sepa: details.isSepa,
         is_hsbc_global: details.isHsbcGlobal,
         is_direct_debit: details.isDirectDebit,
+        is_raast: details.isRaast,
         mandate_reference: details.mandateReference,
+        gateway_bank: details.gatewayBank,
+        gateway_url: details.gatewayUrl,
         timeframe: details.timeframe,
         utr: details.utr,
         fee: details.fee,
@@ -548,6 +479,15 @@ class ApiService {
 
     if (error) throw error;
     return data;
+  }
+
+  async deleteRecipient(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('recipients')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 
   async fetchAllProfiles(): Promise<UserProfile[]> {
@@ -698,6 +638,48 @@ class ApiService {
 
     if (error) throw error;
     return data || [];
+  }
+
+  async fetchRaastTransactions(): Promise<{ data: Transaction[], error: any }> {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('is_raast', true)
+      .order('created_at', { ascending: false });
+
+    if (error) return { data: [], error };
+
+    const transformedData = data.map(tx => ({
+      id: tx.id,
+      name: tx.name,
+      recipientName: tx.recipient_name,
+      date: new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      time: new Date(tx.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' GMT',
+      amount: tx.amount,
+      currency: tx.currency,
+      type: tx.type,
+      status: tx.status,
+      utr: tx.utr,
+      createdAt: tx.created_at,
+      referenceId: tx.reference_id,
+      recipient: tx.recipient_iban,
+      bic: tx.bic,
+      isSepa: tx.is_sepa,
+      isHsbcGlobal: tx.is_hsbc_global,
+      isRaast: tx.is_raast,
+      raastId: tx.raast_id,
+      isDirectDebit: tx.is_direct_debit,
+      mandateReference: tx.mandate_reference,
+      gatewayBank: tx.gateway_bank,
+      gatewayUrl: tx.gateway_url,
+      timeframe: tx.timeframe,
+      fee: tx.fee,
+      totalSettlement: tx.total_settlement,
+      paymentReason: tx.payment_reason,
+      accountId: tx.account_id
+    }));
+
+    return { data: transformedData, error: null };
   }
 
   async fetchAllDisputes(): Promise<any[]> {

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     swift_code TEXT,
     iban TEXT,
     account_number TEXT,
+    raast_id TEXT UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -38,6 +39,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     is_sepa BOOLEAN DEFAULT false,
     is_hsbc_global BOOLEAN DEFAULT false,
     is_direct_debit BOOLEAN DEFAULT false,
+    is_raast BOOLEAN DEFAULT false,
+    raast_id TEXT,
+    mandate_reference TEXT,
+    gateway_bank TEXT,
+    gateway_url TEXT,
     timeframe TEXT,
     utr TEXT,
     fee TEXT,
@@ -83,6 +89,7 @@ CREATE TABLE IF NOT EXISTS user_accounts (
     swift_code TEXT,
     iban TEXT,
     account_number TEXT,
+    raast_id TEXT UNIQUE,
     balance DECIMAL(20, 2) DEFAULT 0.00,
     currency TEXT DEFAULT 'USD',
     is_primary BOOLEAN DEFAULT false,

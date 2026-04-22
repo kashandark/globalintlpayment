@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, ShieldCheck, CheckCircle2, Loader2, ChevronRight, 
   Landmark, Activity, Terminal, ShieldAlert, CheckCircle, 
-  Globe, Server, Send, Wallet, RefreshCw, TrendingUp, Zap, Clock, User, ChevronDown, Search, Plus, Save
+  Globe, Server, Send, Wallet, RefreshCw, TrendingUp, Zap, Clock, User, ChevronDown, Search, Plus, Save, Trash2
 } from 'lucide-react';
 import { api, Recipient, UserAccount } from '../api';
 import TransferConfirmationModal from './TransferConfirmationModal';
@@ -23,8 +23,12 @@ interface TransferFormProps {
     rate: number, 
     isSepa: boolean, 
     isHsbcGlobal?: boolean,
+    isRaast?: boolean,
+    raastId?: string,
     isDirectDebit?: boolean,
     mandateReference?: string,
+    gatewayBank?: string,
+    gatewayUrl?: string,
     timeframe: string, 
     fee: string,
     paymentReason: string,
@@ -98,19 +102,38 @@ const PAYMENT_REASONS = [
   'Capital Investment',
   'Salary / Payroll Posting',
   'Consultancy Services',
-  'Software Licensing',
+  'Software Licensing / IT Services',
   'Marketing Retainer',
   'Family Maintenance',
-  'Education',
-  'Investment',
+  'Education / Tuition Fees',
+  'Investment / Portfolio Management',
   'Dividend Payment',
-  'Loan Repayment',
+  'Loan Repayment / Debt Servicing',
   'Intercompany Transfer',
-  'Charitable Donation',
-  'Donation',
-  'Zakat',
-  'Medical Expenses',
-  'Travel Expenses'
+  'Charitable Donation / Zakat',
+  'Export of IT / Software Services',
+  'Medical Treatment Expenses',
+  'Hajj & Umrah Expenses',
+  'Travel & Tourism',
+  'Foreign Direct Investment (FDI)',
+  'Technical Fee / Royalty',
+  'Commission / Brokerage',
+  'Gifts & Personal Remittance',
+  'Subscription Fees',
+  'Legal & Audit Fees'
+];
+
+const PAKISTANI_BANKS = [
+  { id: 'hbl', name: 'Habib Bank Limited (HBL)', gateway: 'https://hbl-gateway.pk/api/v1' },
+  { id: 'ubl', name: 'United Bank Limited (UBL)', gateway: 'https://ubl-gateway.pk/api/v1' },
+  { id: 'mcb', name: 'MCB Bank Limited', gateway: 'https://mcb-gateway.pk/api/v1' },
+  { id: 'allied', name: 'Allied Bank Limited (ABL)', gateway: 'https://abl-gateway.pk/api/v1' },
+  { id: 'meezan', name: 'Meezan Bank', gateway: 'https://meezan-gateway.pk/api/v1' },
+  { id: 'bankalfalah', name: 'Bank Alfalah', gateway: 'https://alfalah-gateway.pk/api/v1' },
+  { id: 'askari', name: 'Askari Bank', gateway: 'https://askari-gateway.pk/api/v1' },
+  { id: 'faysal', name: 'Faysal Bank', gateway: 'https://faysal-gateway.pk/api/v1' },
+  { id: 'scb', name: 'Standard Chartered Pakistan', gateway: 'https://sc-gateway.pk/api/v1' },
+  { id: 'bop', name: 'The Bank of Punjab (BOP)', gateway: 'https://bop-gateway.pk/api/v1' }
 ];
 
 const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, currentBalance, activeAccount }) => {
@@ -122,10 +145,14 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
   const [currency, setCurrency] = useState('USD');
   const [paymentReason, setPaymentReason] = useState(PAYMENT_REASONS[0]);
   const [mandateReference, setMandateReference] = useState('');
+  const [selectedPakBank, setSelectedPakBank] = useState(PAKISTANI_BANKS[0].id);
   
-  const [transferType, setTransferType] = useState<'STANDARD' | 'HSBC_GLOBAL' | 'SEPA_DIRECT_DEBIT'>('STANDARD');
+  const [raastId, setRaastId] = useState('');
+  const [raastIdType, setRaastIdType] = useState<'IBAN' | 'MOBILE'>('IBAN');
+  
+  const [transferType, setTransferType] = useState<'STANDARD' | 'HSBC_GLOBAL' | 'SEPA_DIRECT_DEBIT' | 'RAAST_DIRECT'>('STANDARD');
   const [destinationCountry, setDestinationCountry] = useState('HK');
-  const [selectedMethod, setSelectedMethod] = useState<'SEPA' | 'SWIFT' | 'HSBC_GLOBAL' | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'SEPA' | 'SWIFT' | 'HSBC_GLOBAL' | 'RAAST' | null>(null);
   const [sepaSpeed, setSepaSpeed] = useState<'standard' | 'instant'>('standard');
   const [isManual, setIsManual] = useState(false);
 
@@ -261,6 +288,8 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
 
       if (transferType === 'SEPA_DIRECT_DEBIT') {
         setSelectedMethod('SEPA');
+      } else if (finalData.countryCode === 'PK') {
+        setSelectedMethod('RAAST');
       } else if (finalData.isSepa === 'Yes' && finalData.isSwift === 'Yes') {
         setSelectedMethod(null);
       } else if (finalData.isSepa === 'Yes') {
@@ -295,8 +324,8 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
   }, [recipientIban]);
 
   const getTimeframe = () => {
-    if (selectedMethod === 'HSBC_GLOBAL') {
-      return "Instant (Internal Network)";
+    if (selectedMethod === 'HSBC_GLOBAL' || selectedMethod === 'RAAST') {
+      return selectedMethod === 'RAAST' ? "Instant (Raast Protocol)" : "Instant (Internal Network)";
     }
     if (selectedMethod === 'SEPA') {
       return sepaSpeed === 'instant' ? "Under 10 Seconds" : "Max 1 Business Day";
@@ -306,8 +335,8 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
 
   const getFee = () => {
     const val = parseFloat(amount || '0');
-    if (selectedMethod === 'HSBC_GLOBAL') {
-      return (val * 0.01).toFixed(2);
+    if (selectedMethod === 'HSBC_GLOBAL' || selectedMethod === 'RAAST') {
+      return selectedMethod === 'RAAST' ? "0.00" : (val * 0.01).toFixed(2);
     }
     if (selectedMethod === 'SEPA') {
       const rate = sepaSpeed === 'instant' ? 0.03 : 0.005;
@@ -345,11 +374,26 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
     const fee = getFee();
 
     // Map log steps to the variable delay
-    const totalSteps = 7;
+    const isPakistan = ibanData?.countryCode === 'PK' || selectedMethod === 'RAAST';
+    const pakBank = PAKISTANI_BANKS.find(b => b.id === selectedPakBank);
+    
+    const totalSteps = isPakistan ? 9 : 7;
     const intervalTime = totalDelay / totalSteps;
 
     for (let i = 1; i <= totalSteps; i++) {
       await new Promise(r => setTimeout(r, intervalTime));
+      
+      // Custom logic for Pakistan Gateway steps
+      if (isPakistan) {
+        if (i === 3) {
+          console.log(`Routing to ${pakBank?.name} Gateway...`);
+        } else if (i === 4) {
+          console.log(`Gateway Handshake: ${pakBank?.gateway}`);
+        } else if (i === 5) {
+          console.log(`Validating Account with ${pakBank?.name} Core Banking...`);
+        }
+      }
+      
       setProcessStep(i);
     }
     
@@ -359,14 +403,18 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
       recipientName: recipientName || (ibanData?.bankName || "Verified Participant"),
       recipientAccountNumber: recipientAccountNumber,
       bic: bicCode || (ibanData?.bic || "SWIFXXXX"),
-      bank: ibanData?.bankName || "Institutional Node",
+      bank: isPakistan ? (pakBank?.name || "Pakistani Bank") : (ibanData?.bankName || "Institutional Node"),
       centralBankName: ibanData?.centralBankName || "Reserve Hub",
       currency: currency,
       rate: rates[currency],
       isSepa: selectedMethod === 'SEPA' || transferType === 'SEPA_DIRECT_DEBIT',
       isHsbcGlobal: selectedMethod === 'HSBC_GLOBAL',
+      isRaast: selectedMethod === 'RAAST',
+      raastId: raastIdType === 'MOBILE' ? `+92${raastId}` : undefined,
       isDirectDebit: transferType === 'SEPA_DIRECT_DEBIT',
       mandateReference: mandateReference,
+      gatewayBank: isPakistan ? pakBank?.name : undefined,
+      gatewayUrl: isPakistan ? pakBank?.gateway : undefined,
       timeframe: timeframe,
       fee: fee,
       paymentReason: paymentReason,
@@ -402,6 +450,17 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
       console.error('Failed to save recipient', e);
     } finally {
       setIsSavingRecipient(false);
+    }
+  };
+
+  const handleDeleteRecipient = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to remove this recipient?')) return;
+    try {
+      await api.deleteRecipient(id);
+      setSavedRecipients(prev => prev.filter(r => r.id !== id));
+    } catch (e) {
+      console.error('Failed to delete recipient', e);
     }
   };
 
@@ -484,64 +543,124 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
           >
             HSBC Global
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTransferType('RAAST_DIRECT');
+              setSelectedMethod('RAAST');
+              setIbanData(null);
+              setCurrency('PKR');
+            }}
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${transferType === 'RAAST_DIRECT' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400'}`}
+          >
+            Raast Direct
+          </button>
         </div>
 
         {/* Step 1: Destination */}
         <div className="space-y-4">
           <div className="flex justify-between items-center px-1">
             <label className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
-              <Building2 className="w-3.5 h-3.5" /> {transferType === 'HSBC_GLOBAL' ? 'HSBC Account Number' : transferType === 'SEPA_DIRECT_DEBIT' ? 'Debtor Account Identifier (IBAN)' : 'Target Account Identifier (IBAN)'}
+              <Building2 className="w-3.5 h-3.5" /> 
+              {transferType === 'HSBC_GLOBAL' ? 'HSBC Account Number' : 
+               transferType === 'SEPA_DIRECT_DEBIT' ? 'Debtor Account Identifier (IBAN)' : 
+               transferType === 'RAAST_DIRECT' && raastIdType === 'MOBILE' ? 'Raast ID (Mobile Number)' :
+               'Target Account Identifier (IBAN)'}
             </label>
-            <div className="relative">
-              <button 
-                type="button"
-                onClick={() => setShowRecipientDropdown(!showRecipientDropdown)}
-                className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  showRecipientDropdown 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                    : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                }`}
-              >
-                <Search className="w-3 h-3" /> {showRecipientDropdown ? 'Close' : 'Saved Recipients'}
-              </button>
-              
-              {showRecipientDropdown && (
-                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 duration-200">
-                  <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                      <input 
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search recipients..."
-                        className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-xs font-bold outline-none focus:border-blue-600 dark:text-white transition-colors"
-                      />
-                    </div>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                    {savedRecipients.filter(r => (r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (r.iban || '').includes(searchQuery.toUpperCase())).length > 0 ? (
-                      savedRecipients
-                        .filter(r => (r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (r.iban || '').includes(searchQuery.toUpperCase()))
-                        .map(r => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => selectRecipient(r)}
-                            className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0"
-                          >
-                            <p className="text-xs font-black text-gray-900 dark:text-white uppercase truncate">{r.name}</p>
-                            <p className="text-[10px] font-mono text-gray-400 dark:text-gray-500 truncate">{r.iban}</p>
-                          </button>
-                        ))
-                    ) : (
-                      <div className="p-8 text-center">
-                        <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">No recipients found</p>
-                      </div>
-                    )}
-                  </div>
+            
+            <div className="flex items-center gap-4">
+              {transferType === 'RAAST_DIRECT' && (
+                <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setRaastIdType('IBAN')}
+                    className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${raastIdType === 'IBAN' ? 'bg-white dark:bg-[#111] text-green-600 shadow-sm' : 'text-gray-400'}`}
+                  >
+                    IBAN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRaastIdType('MOBILE');
+                      setIbanData({
+                        isValid: true,
+                        countryCode: 'PK',
+                        countryName: 'Pakistan',
+                        currency: 'PKR',
+                        bankName: 'Raast Mobile Gateway',
+                        bic: 'RAASTPKXXXX',
+                        isSepa: 'No',
+                        isSwift: 'No'
+                      });
+                      setSelectedMethod('RAAST');
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${raastIdType === 'MOBILE' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400'}`}
+                  >
+                    Mobile
+                  </button>
                 </div>
               )}
+              
+              <div className="relative">
+                <button 
+                  type="button"
+                  onClick={() => setShowRecipientDropdown(!showRecipientDropdown)}
+                  className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                    showRecipientDropdown 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                      : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                  }`}
+                >
+                  <Search className="w-3 h-3" /> {showRecipientDropdown ? 'Close' : 'Saved Recipients'}
+                </button>
+                
+                {showRecipientDropdown && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                        <input 
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search recipients..."
+                          className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-xs font-bold outline-none focus:border-blue-600 dark:text-white transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                      {savedRecipients.filter(r => (r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (r.iban || '').includes(searchQuery.toUpperCase())).length > 0 ? (
+                        savedRecipients
+                          .filter(r => (r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (r.iban || '').includes(searchQuery.toUpperCase()))
+                          .map(r => (
+                            <div key={r.id} className="group/item flex items-center hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0">
+                              <button
+                                type="button"
+                                onClick={() => selectRecipient(r)}
+                                className="flex-1 px-4 py-3 text-left overflow-hidden"
+                              >
+                                <p className="text-xs font-black text-gray-900 dark:text-white uppercase truncate">{r.name}</p>
+                                <p className="text-[10px] font-mono text-gray-400 dark:text-gray-500 truncate">{r.iban}</p>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteRecipient(e, r.id)}
+                                className="p-3 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover/item:opacity-100"
+                                title="Remove from address book"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))
+                      ) : (
+                        <div className="p-8 text-center">
+                          <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">No recipients found</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="relative group">
@@ -585,6 +704,25 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                 </div>
               </div>
+            ) : transferType === 'RAAST_DIRECT' && raastIdType === 'MOBILE' ? (
+              <div className="relative">
+                <div className="absolute left-5 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <span className="text-sm font-bold text-gray-400">+92</span>
+                  <div className="w-px h-4 bg-gray-200 dark:bg-gray-700"></div>
+                </div>
+                <input 
+                  type="tel" 
+                  value={raastId}
+                  onChange={(e) => setRaastId(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="300 1234567"
+                  className="w-full pl-16 pr-12 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-base font-mono font-bold text-black dark:text-white focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-green-600 outline-none transition-all"
+                  required
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[8px] font-black rounded-full uppercase tracking-tighter border border-green-200 dark:border-green-800">Raast ID</span>
+                  {raastId.length === 10 && <CheckCircle2 className="w-6 h-6 text-green-500 dark:text-green-400" />}
+                </div>
+              </div>
             ) : (
               <>
                 <input 
@@ -595,12 +733,37 @@ const TransferForm: React.FC<TransferFormProps> = ({ onTransferComplete, current
                   className="w-full pl-5 pr-12 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-base font-mono font-bold text-black dark:text-white focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-[#002366] dark:focus:border-blue-600 outline-none transition-all"
                   required
                 />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  {ibanData?.countryCode === 'PK' && (
+                    <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[8px] font-black rounded-full uppercase tracking-tighter border border-green-200 dark:border-green-800">Raast Enabled</span>
+                  )}
                   {isValidating ? <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" /> : ibanData?.isValid && <CheckCircle2 className="w-6 h-6 text-green-500 dark:text-green-400" />}
                 </div>
               </>
             )}
           </div>
+
+          {ibanData?.countryCode === 'PK' && (
+            <div className="mt-6 animate-in fade-in slide-in-from-top-4 duration-500">
+              <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 ml-1">Select Receiving Bank (Gateway Routing)</label>
+              <div className="relative">
+                <select
+                  value={selectedPakBank}
+                  onChange={(e) => setSelectedPakBank(e.target.value)}
+                  className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-100 dark:border-gray-800 rounded-2xl text-sm font-bold text-black dark:text-white appearance-none outline-none focus:bg-white dark:focus:bg-[#1a1a1a] focus:border-[#002366] dark:focus:border-blue-600 transition-all"
+                >
+                  {PAKISTANI_BANKS.map(bank => (
+                    <option key={bank.id} value={bank.id}>{bank.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+              </div>
+              <p className="mt-2 text-[9px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-tight flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                Direct Gateway Connection: {PAKISTANI_BANKS.find(b => b.id === selectedPakBank)?.gateway}
+              </p>
+            </div>
+          )}
 
           {ibanData && (
             <div className="mt-8 animate-in fade-in slide-in-from-top-4 duration-500">
